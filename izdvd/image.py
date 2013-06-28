@@ -12,9 +12,33 @@ import shutil
 import tempfile
 import math
 
+get_tmp_filepath(tmpdir, name, suffix, out_fmt):
+    filename = '{}_{}.{}'.format(name, suffix, out_fmt)
+    out_file = os.path.join(tmpdir, filename)
+    return out_file
+
+
+
 class Error(Exception):
     def __init__(self, message):
         self.message = message
+
+
+class TextImg(Img):
+    def __init__(self, text, line_height, max_width=None, font='Sans'):
+        self.text = text
+        self.segments = []
+        self.line_height = line_height
+        self.font = font
+    
+    def get_dims(self, segment):
+        pass
+    
+    def get_pt_size(self):
+        pass
+    
+    def wrap_text(self):
+        pass
 
 
 class Img (object):
