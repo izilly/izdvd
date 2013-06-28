@@ -12,33 +12,10 @@ import shutil
 import tempfile
 import math
 
-get_tmp_filepath(tmpdir, name, suffix, out_fmt):
-    filename = '{}_{}.{}'.format(name, suffix, out_fmt)
-    out_file = os.path.join(tmpdir, filename)
-    return out_file
-
-
 
 class Error(Exception):
     def __init__(self, message):
         self.message = message
-
-
-class TextImg(Img):
-    def __init__(self, text, line_height, max_width=None, font='Sans'):
-        self.text = text
-        self.segments = []
-        self.line_height = line_height
-        self.font = font
-    
-    def get_dims(self, segment):
-        pass
-    
-    def get_pt_size(self):
-        pass
-    
-    def wrap_text(self):
-        pass
 
 
 class Img (object):
@@ -62,6 +39,11 @@ class Img (object):
         self.ar = self.width / self.height
         self.orig_ar = self.ar
     
+    def get_tmpfile(self, suffix, out_fmt):
+        filename = '{}_{}.{}'.format(self.name, suffix, out_fmt)
+        out_file = os.path.join(self.tmpdir, filename)
+        return out_file
+
     def get_width(self):
         w = subprocess.check_output(['identify', '-format', '%w', self.path], 
                                     universal_newlines=True)
@@ -120,7 +102,7 @@ class Img (object):
     
     def transcode(self, out_file=None, out_fmt='png'):
         if out_file is None:
-            out_file = os.path.join(self.tmpdir, self.name+'.'+out_fmt)
+            out_file = self.get_tmpfile('tc', out_fmt)
         o = subprocess.check_output(['convert', self.path, out_file], 
                                     universal_newlines=True)
         self.update_versions(out_file)
@@ -129,8 +111,7 @@ class Img (object):
     def resize(self, width, height, ignore_aspect=False, out_file=None, 
                out_fmt='png'):
         if out_file is None:
-            out_file = os.path.join(self.tmpdir, 
-                        self.name+'-resize-{}x{}.'.format(width, height)+out_fmt)
+            out_file = self.get_tmpfile('{}x{}'.format(width, height), out_fmt)
         flags=''
         if ignore_aspect:
             flags='!'
@@ -143,7 +124,7 @@ class Img (object):
     def pad(self, color='none', north=0, south=0, east=0, west=0, 
             out_file=None, out_fmt='png'):
         if out_file is None:
-            out_file = os.path.join(self.tmpdir, self.name+'-padded.'+out_fmt)
+            out_file = self.get_tmpfile('padded', out_fmt)
         splice_opts = []
         for k,v in {'north':north, 'south':south}.items():
             if v > 0:
@@ -161,7 +142,7 @@ class Img (object):
     def pad_centered(self, color='none', pad_x=0, pad_y=0, out_file=None, 
                      out_fmt='png'):
         if out_file is None:
-            out_file = os.path.join(self.tmpdir, self.name+'-padded.'+out_fmt)
+            out_file = self.get_tmpfile('padded', out_fmt)
         new_w = self.get_width() + pad_x
         new_h = self.get_height() + pad_y
         self.pad_to(color=color, new_w=new_w, new_h=new_h, out_file=out_file,
@@ -170,7 +151,7 @@ class Img (object):
     def pad_to(self, color='none', new_w=None, new_h=None, out_file=None, 
                      out_fmt='png'):
         if out_file is None:
-            out_file = os.path.join(self.tmpdir, self.name+'-padded.'+out_fmt)
+            out_file = self.get_tmpfile('padded', out_fmt)
         extent_dims = '{}x{}'.format(new_w, new_h)
         o = subprocess.check_output(['convert', self.path, '-gravity', 'center',
                                      '-background', color, '-extent', 
@@ -180,7 +161,7 @@ class Img (object):
     
     def pad_to_ar(self, ar, color='none', out_file=None, out_fmt='png'):
         if out_file is None:
-            out_file = os.path.join(self.tmpdir, self.name+'-pad_ar.'+out_fmt)
+            out_file = self.get_tmpfile('pad_ar', out_fmt)
         if ar > self.ar:
             new_w = math.ceil(self.height * ar)
             new_h = self.height
@@ -193,7 +174,7 @@ class Img (object):
     
     def border(self, color, geometry, out_file=None, out_fmt='png'):
         if out_file is None:
-            out_file = os.path.join(self.tmpdir, self.name+'-border.'+out_fmt)
+            out_file = self.get_tmpfile('border', out_fmt)
         before_w, before_h = self.update_dims()
         o = subprocess.check_output(['convert', self.path, '-compose', 'Copy', 
                                      '-bordercolor', color, '-border', 
@@ -210,7 +191,7 @@ class Img (object):
     def drop_shadow(self, color='black', opacity=80, sigma=3, 
                     x_offset=5, y_offset=5, out_file=None, out_fmt='png'):
         if out_file is None:
-            out_file = os.path.join(self.tmpdir, self.name+'-shadow.'+out_fmt)
+            out_file = self.get_tmpfile('shadow', out_fmt)
         shadow_opts = '{}x{}{:+}{:+}'.format(opacity, sigma, x_offset, y_offset)
         o = subprocess.check_output(['convert', self.path, '(', '+clone', 
                                      '-background', color, '-shadow', 
@@ -245,8 +226,7 @@ class Img (object):
         Returns:  self (with new layer flattened onto canvas)
         '''
         if out_file is None:
-            out_file = os.path.join(self.tmpdir, 
-                                    self.name+'-new_layer.'+out_fmt)
+            out_file = self.get_tmpfile('new_layer', out_fmt)
         if type(img) == type(self):
             if use_orig_origin:
                 x_offset -= img.x_offset
@@ -267,7 +247,7 @@ class Img (object):
     
     def new_canvas(self, color='none', out_file=None, out_fmt='png'):
         if out_file is None:
-            out_file = os.path.join(self.tmpdir, self.name+'-canvas.'+out_fmt)
+            out_file = self.get_tmpfile('canvas', out_fmt)
         o = subprocess.check_output(['convert', self.path, '-background', 
                                      color, '-compose', 'Dst', '-flatten', 
                                      out_file], 
