@@ -18,6 +18,23 @@ class Error(Exception):
         self.message = message
 
 
+class TextImg(Img):
+    def __init__(self, text, line_height, max_width=None, font='Sans'):
+        self.text = text
+        self.segments = []
+        self.line_height = line_height
+        self.font = font
+    
+    def get_dims(self, segment):
+        pass
+    
+    def get_pt_size(self):
+        pass
+    
+    def wrap_text(self):
+        pass
+
+
 class Img (object):
     def __init__(self, path):
         print(type(self))
