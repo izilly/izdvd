@@ -36,31 +36,45 @@ class TextImg(Img):
 
 
 class Img (object):
-    def __init__(self, path):
-        print(type(self))
+    def __init__(self, path=None, ext='png'):
         self.uid = str(id(self))
+        self.ext = ext
         self.versions = []
         self.update_versions(path)
         self.orig_name = self.name
         self.orig_ext = self.ext
-        self.tmpdir = os.path.join(tempfile.gettempdir(), __name__, 
-                                   self.orig_name+self.uid)
+        if path is not None:
+            self.tmpdir = os.path.join(tempfile.gettempdir(), __name__, 
+                                       self.orig_name+self.uid)
+            self.width = self.get_width()
+            self.height = self.get_height()
+            self.orig_width = self.width
+            self.orig_height = self.height
+            self.ar = self.width / self.height
+            self.orig_ar = self.ar
+        else:
+            self.tmpdir = os.path.join(tempfile.gettempdir(), __name__, 
+                                       self.uid)
+            self.width = None
+            self.height = None
+            self.orig_width = None
+            self.orig_height = None
+            self.ar = None
+            self.orig_ar = None
         if not os.path.exists(self.tmpdir):
             os.makedirs(self.tmpdir)
-        self.width = self.get_width()
-        self.height = self.get_height()
-        self.orig_width = self.width
-        self.orig_height = self.height
         self.x_offset = 0
         self.y_offset = 0
-        self.ar = self.width / self.height
-        self.orig_ar = self.ar
     
     def update_versions(self, new_version):
         self.path = new_version
-        self.versions.append(self.path)
-        self.basename = os.path.basename(self.path)
-        self.name, self.ext = os.path.splitext(self.basename)
+        self.versions.append(new_version)
+        if new_version is not None:
+            self.basename = os.path.basename(self.path)
+            self.name, self.ext = os.path.splitext(self.basename)
+        else:
+            self.basename = None
+            self.name = self.uid
     
     def get_tmpfile(self, suffix, out_fmt):
         filename = '{}_{}.{}'.format(self.name, suffix, out_fmt)
