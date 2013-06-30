@@ -56,6 +56,12 @@ class Img (object):
         self.ar = self.width / self.height
         self.orig_ar = self.ar
     
+    def update_versions(self, new_version):
+        self.path = new_version
+        self.versions.append(self.path)
+        self.basename = os.path.basename(self.path)
+        self.name, self.ext = os.path.splitext(self.basename)
+    
     def get_tmpfile(self, suffix, out_fmt):
         filename = '{}_{}.{}'.format(self.name, suffix, out_fmt)
         out_file = os.path.join(self.tmpdir, filename)
@@ -77,13 +83,7 @@ class Img (object):
         self.width = self.get_width()
         self.height = self.get_height()
         return (self.width, self.height)
-    
-    def update_versions(self, new_version):
-        self.path = new_version
-        self.versions.append(self.path)
-        self.basename = os.path.basename(self.path)
-        self.name, self.ext = os.path.splitext(self.basename)
-    
+        
     def clear_offsets(self):
         '''Resets any saved offset information.  Any future operations which 
         record offset information will be relative to this location, rather
