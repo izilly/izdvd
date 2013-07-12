@@ -18,23 +18,6 @@ class Error(Exception):
         self.message = message
 
 
-class TextImg(Img):
-    def __init__(self, text, line_height, max_width=None, font='Sans'):
-        self.text = text
-        self.segments = []
-        self.line_height = line_height
-        self.font = font
-    
-    def get_dims(self, segment):
-        pass
-    
-    def get_pt_size(self):
-        pass
-    
-    def wrap_text(self):
-        pass
-
-
 class Img (object):
     def __init__(self, path=None, ext='png'):
         self.uid = str(id(self))
@@ -73,7 +56,7 @@ class Img (object):
             self.basename = os.path.basename(self.path)
             self.name, self.ext = os.path.splitext(self.basename)
         else:
-            self.basename = None
+            self.basename = '{}.{}'.format(self.uid, self.ext)
             self.name = self.uid
     
     def get_tmpfile(self, suffix, out_fmt):
@@ -285,3 +268,108 @@ class Img (object):
                                     universal_newlines=True)
         return Img(out_file)
 
+
+class TextImg(Img):
+    def __init__(self, text, font='Sans', background='none',
+                 size=None, pts=None, 
+                 line_height=None, max_width=None, gravity='center',
+                 fill='white', stroke='black', strokewidth=0, 
+                 shadow=0):
+        self.text = text
+        self.font = font
+        self.background = background
+        self.size = size
+        self.line_height = line_height
+        self.max_width = max_width
+        self.gravity = gravity
+        self.fill = fill
+        self.stroke = stroke
+        self.strokewidth = strokewidth
+        self.shadow = shadow
+        self.pts = pts
+        self.segments = []
+        super(TextImg, self).__init__()
+    
+    def get_common_opts(self):
+        opts = []
+        for i in ['background', 'gravity', 'font', 'fill', 'stroke', 
+                  'strokewidth']:
+            v = getattr(self, i)
+            if v is not None:
+                opts.append('-{}'.format(i))
+                opts.append(str(v))
+        return opts
+    
+    def get_label_cmd(self, pts=None, text=None, size=None):
+        if text is None:
+            text = self.text
+        if pts is None:
+            pts = self.pts
+        common_opts = self.get_common_opts()
+        if size:
+            size = '{}x{}'.format(*size)
+            common_opts = ['-size', size] + common_opts
+        draw_opts = ['-pointsize', str(pts), 'label:{}'.format(text)]
+        cmd = ['convert'] + common_opts + draw_opts
+        return cmd
+    
+    def get_annotate_cmd(self, size=None, text=None, pts=None, 
+                         clear_inner_stroke=True):
+        if text is None:
+            text = self.text
+        if pts is None:
+            pts = self.pts
+        common_opts = self.get_common_opts()
+        if size is None:
+            w, h = self.get_size(pts=pts, text=text)
+            w += 50
+            h += 50
+        else:
+            w, h = size
+        size = '{}x{}'.format(w, h)
+        canvas_opts = ['-size', str(size), 'xc:{}'.format(self.background)]
+        opts = ['-size', str(size), 
+                'xc:{}'.format(self.background)] + common_opts
+        opts = opts + ['-pointsize', str(pts), '-annotate', '0', text]
+        if clear_inner_stroke:
+            opts = opts + ['-stroke', 'none', '-annotate', '0', text]
+        opts.extend(['-trim', '+repage'])
+        cmd = ['convert'] + opts
+        return cmd
+        
+    def get_size(self, pts=None, text=None):
+        if text is None:
+            text = self.text
+        if pts is None:
+            pts = self.pts
+        label_cmd = self.get_label_cmd(text=text, pts=pts)
+        cmd = label_cmd + ['-trim', '+repage', '-format', '%w;%h', 'info:']
+        size = subprocess.check_output(cmd, universal_newlines=True)
+        w, h = size.split(';')
+        return (float(w), float(h))
+    
+    def write(self, cmd, out_dir=None, out_basename=None):
+        if out_dir is None:
+            out_dir = self.tmpdir
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        if out_basename is None:
+            out_basename = self.basename
+        out_path = os.path.join(out_dir, out_basename)
+        cmd = cmd + [out_path]
+        output = subprocess.check_output(cmd, universal_newlines=True)
+        written = out_path
+        self.update_versions(written)
+        return written
+    
+    def show(self, cmd):
+        subprocess.check_call(cmd + ['show:'])
+    
+    def get_dims(self, segment):
+        pass
+    
+    def get_pt_size(self):
+        pass
+    
+    def wrap_text(self):
+        pass
