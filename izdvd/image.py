@@ -11,6 +11,7 @@ import os.path
 import shutil
 import tempfile
 import math
+from collections import deque
 
 
 class Error(Exception):
@@ -270,42 +271,62 @@ class Img (object):
 
 
 class TextImg(Img):
-    def __init__(self, text, font='Sans', background='none',
-                 size=None, pts=None, 
-                 line_height=None, max_width=None, gravity='center',
-                 fill='white', stroke='black', strokewidth=0, 
-                 shadow=0):
+    def __init__(self, text, font='DejaVu-Sans-Bold', pointsize=None,
+                 fill='white', stroke='black', strokewidth=0, word_spacing=0,
+                 clear_inner_stroke=True,
+                 line_height=None, max_width=None, max_lines=None, 
+                 size=None, background='none', gravity='center'):
         self.text = text
         self.font = font
-        self.background = background
-        self.size = size
-        self.line_height = line_height
-        self.max_width = max_width
-        self.gravity = gravity
+        self.pts = pointsize
         self.fill = fill
         self.stroke = stroke
         self.strokewidth = strokewidth
-        self.shadow = shadow
-        self.pts = pts
-        self.segments = []
+        self.interword_spacing = word_spacing
+        self.clear_inner_stroke = clear_inner_stroke
+        self.line_height = line_height
+        self.max_width = max_width
+        self.max_lines = max_lines
+        self.size = size
+        self.background = background
+        self.gravity = gravity
+        self.lines = []
+        self.line_imgs = []
+        #
+        if self.pts is None and self.line_height is not None:
+            self.pts = self.get_pts_from_lh()
+            self.pts_orig = self.pts
+        if self.max_width:
+            self.wrap_text()
+        else:
+            self.lines = [self.text.split(' ')]
+        self.get_draw_cmd = self.get_annotate_cmd
         super(TextImg, self).__init__()
+        self.write()
+        if self.max_width:
+            self.append_lines()
     
-    def get_common_opts(self):
+    def get_common_opts(self, interword_spacing=None):
         opts = []
-        for i in ['background', 'gravity', 'font', 'fill', 'stroke', 
-                  'strokewidth']:
+        opt_names = ['background', 'gravity', 'font', 'fill', 'stroke', 
+                     'strokewidth']
+        for i in opt_names:
             v = getattr(self, i)
             if v is not None:
-                opts.append('-{}'.format(i))
+                opts.append('-{}'.format(i.replace('_', '-')))
                 opts.append(str(v))
+        if interword_spacing is None:
+            interword_spacing = self.interword_spacing
+        opts.extend(['-interword-spacing', str(interword_spacing)])
         return opts
     
-    def get_label_cmd(self, pts=None, text=None, size=None):
+    def get_label_cmd(self, pts=None, text=None, size=None, 
+                      interword_spacing=None):
         if text is None:
             text = self.text
         if pts is None:
             pts = self.pts
-        common_opts = self.get_common_opts()
+        common_opts = self.get_common_opts(interword_spacing=interword_spacing)
         if size:
             size = '{}x{}'.format(*size)
             common_opts = ['-size', size] + common_opts
@@ -314,11 +335,13 @@ class TextImg(Img):
         return cmd
     
     def get_annotate_cmd(self, size=None, text=None, pts=None, 
-                         clear_inner_stroke=True):
+                         clear_inner_stroke=None):
         if text is None:
             text = self.text
         if pts is None:
             pts = self.pts
+        if clear_inner_stroke is None:
+            clear_inner_stroke = self.clear_inner_stroke
         common_opts = self.get_common_opts()
         if size is None:
             w, h = self.get_size(pts=pts, text=text)
@@ -337,18 +360,21 @@ class TextImg(Img):
         cmd = ['convert'] + opts
         return cmd
         
-    def get_size(self, pts=None, text=None):
+    def get_size(self, pts=None, text=None, interword_spacing=None):
         if text is None:
             text = self.text
         if pts is None:
             pts = self.pts
-        label_cmd = self.get_label_cmd(text=text, pts=pts)
+        label_cmd = self.get_label_cmd(text=text, pts=pts, 
+                                       interword_spacing=interword_spacing)
         cmd = label_cmd + ['-trim', '+repage', '-format', '%w;%h', 'info:']
         size = subprocess.check_output(cmd, universal_newlines=True)
         w, h = size.split(';')
         return (float(w), float(h))
     
-    def write(self, cmd, out_dir=None, out_basename=None):
+    def write(self, cmd=None, out_dir=None, out_basename=None):
+        if cmd is None:
+            cmd = self.get_draw_cmd()
         if out_dir is None:
             out_dir = self.tmpdir
         if not os.path.exists(out_dir):
@@ -362,14 +388,164 @@ class TextImg(Img):
         self.update_versions(written)
         return written
     
-    def show(self, cmd):
-        subprocess.check_call(cmd + ['show:'])
+    def get_line_imgs(self):
+        line_imgs = []
+        for line in self.lines:
+            text = ' '.join(line)
+            img = TextImg(text=text, font=self.font, pointsize=self.pts,
+                          fill=self.fill, stroke=self.stroke, 
+                          strokewidth=self.strokewidth, 
+                          word_spacing=self.interword_spacing,
+                          clear_inner_stroke=self.clear_inner_stroke,
+                          line_height=None, 
+                          max_width=None, max_lines=None, 
+                          size=self.size, background=self.background, 
+                          gravity=self.gravity)
+            line_imgs.append(img)
+        self.line_imgs = line_imgs
     
-    def get_dims(self, segment):
-        pass
+    def append_lines(self, out_file=None, out_fmt='png'):
+        if out_file is None:
+            out_file = self.get_tmpfile('wrapped', out_fmt)
+        if not self.line_imgs:
+            self.get_line_imgs()
+        li = [i.path for i in self.line_imgs]
+        top = li[0]
+        bottom = li[1:]
+        append_cmd = ['convert', top, '-background', self.background, 
+                      '-gravity', self.gravity] + bottom + ['-append', out_file]
+        o = subprocess.check_output(append_cmd, universal_newlines=True)
+        self.update_versions(out_file)
+        return out_file
     
-    def get_pt_size(self):
-        pass
+    def show(self, cmd=None):
+        if cmd is None:
+            cmd = ['display', self.path]
+        else:
+            cmd = cmd + ['show:']
+        subprocess.check_call(cmd)
+    
+    def get_pts_from_lh(self):
+        pts = 0
+        while True:
+            pts += 1
+            w, h = self.get_size(pts)
+            if h > self.line_height:
+                pt_size = pts - 1
+                return pt_size
+    
+    def get_default_word_spacing(self, pts=None):
+        zero, h = self.get_size(pts=pts, text='A A', interword_spacing=0)
+        one, h = self.get_size(pts=pts, text='A A', interword_spacing=1)
+        default = zero - one + 1
+        return default
     
     def wrap_text(self):
-        pass
+        self._fit_wrapping()
+        self._minimize_raggedness()
+        self._maximize_pts()
+        self._maximize_word_spacing()
+    
+    def _get_wrapped(self, text=None, pts=None, interword_spacing=None):
+        # word-spacing:     no less than 1/2 of default
+        if text is None:
+            text = self.text
+        if pts is None:
+            pts = self.pts
+        if interword_spacing is None:
+            interword_spacing = self.get_default_word_spacing()
+        words = deque(self.text.split(' '))
+        lines = [[]]
+        while words:
+            w = words.popleft()
+            width, h = self.get_size(text=' '.join(lines[-1] + [w]), pts=pts,
+                                     interword_spacing=interword_spacing)
+            if width <= self.max_width:
+                lines[-1].append(w)
+            else:
+                lines.append([w])
+        return lines[:self.max_lines]
+    
+    def _fit_wrapping(self, pts_adjust=.1, spacing_adjust=.5):
+        pts = self.pts
+        pts_min = pts - pts * pts_adjust
+        spacing = self.get_default_word_spacing()
+        spacing_min = spacing - spacing * spacing_adjust
+        
+        lines_min = self._get_wrapped(pts=pts_min, interword_spacing=spacing_min)
+        lines_default = self._get_wrapped()
+        
+        words_min = [word for line in lines_min for word in line]
+        words_default = [word for line in lines_default for word in line]
+
+        if words_default == words_min:
+            self.lines = lines_default
+            return
+        
+        lines_med = self._get_wrapped(interword_spacing=spacing_min)
+        words_med = [word for line in lines_med for word in line]
+        
+        self.interword_spacing = spacing_min
+        
+        if words_med == words_min:
+            self.lines = lines_med
+            return
+        else:
+            self.orig_pts = pts 
+            self.pts = pts_min
+            self.lines = lines_min
+            return
+    
+    def _minimize_raggedness(self):
+        mw = self.max_width
+        lines = self.lines[:]
+        lines.reverse()
+        for n,line in enumerate(lines):
+            if n+1 == len(lines):
+                break
+            prev = lines[n+1]
+            for word in reversed(prev):
+                moved_width = self.get_size(text=' '.join(line + [word]))[0]
+                if moved_width <= self.max_width:
+                    line_sq = (mw - self.get_size(text=' '.join(line))[0]) ** 2
+                    prev_sq = (mw - self.get_size(text=' '.join(prev))[0]) ** 2
+                    sq = line_sq + prev_sq
+                    nl = [prev[-1]] + line
+                    np = prev[:-1]
+                    nl_sq = (mw - self.get_size(text=' '.join(nl))[0]) ** 2
+                    np_sq = (mw - self.get_size(text=' '.join(np))[0]) ** 2
+                    nsq = nl_sq + np_sq
+                    if nsq < sq:
+                        line[:0] = [prev.pop()]
+                    else:
+                        break
+                else:
+                    break
+        lines.reverse()
+        self.lines = lines
+    
+    def _maximize_pts(self):
+        pts = math.floor(self.pts) - 1
+        while True:
+            pts += 1
+            if pts > self.pts_orig:
+                break
+            width = max([self.get_size(pts=pts, text=' '.join(i))[0] 
+                        for i in self.lines])
+            if width > self.max_width:
+                break
+        self.pts = pts - 1
+        
+    def _maximize_word_spacing(self):
+        widths = [self.get_size(text=' '.join(i))[0] for i in self.lines]
+        gaps = [self.max_width - i for i in widths]
+        spaces = [len(i) - 1 for i in self.lines]
+        gaps_per_space = [g / spaces[n] if spaces[n] > 0 else None 
+                          for n,g in enumerate(gaps)]
+        gps = [i for i in gaps_per_space if i is not None]
+        smallest_gap = min(gps)
+        
+        new_spacing = min([self.get_default_word_spacing(), 
+                           self.interword_spacing + smallest_gap])
+        self.interword_spacing = new_spacing
+
