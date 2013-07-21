@@ -6,7 +6,7 @@
 #  The full license is in the file LICENSE, distributed with this software.
 #
 
-from izdvd.image import Img
+from izdvd.image import Img, CanvasImg
 import subprocess
 import math
 from collections import Counter
@@ -14,16 +14,19 @@ import argparse
 
 
 class BG (object):
-    def __init__(self, bg_img, button_imgs, outer_padding=30, inner_padding=30,
+    def __init__(self, bg_img, button_imgs, button_labels=None, label_size=0,
+                 label_lines=2, outer_padding=30, inner_padding=30, 
                  display_ar=None):
         self.bg_img = Img(bg_img)
         self.button_imgs = [Img(i) for i in button_imgs]
+        self.button_labels = button_labels
+        self.label_size = label_size
         self.outer_padding = outer_padding
         self.inner_padding = inner_padding
         self.width = self.bg_img.width
         self.height = self.bg_img.height
-        self.usable_w = self.width - self.outer_padding
-        self.usable_h = self.height - self.outer_padding
+        #~ self.usable_w = self.width - self.outer_padding
+        #~ self.usable_h = self.height - self.outer_padding
         self.storage_ar = self.width / self.height
         if display_ar is None:
             self.display_ar = self.storage_ar
@@ -31,7 +34,6 @@ class BG (object):
             self.display_ar = display_ar
         self.multiplier = self.storage_ar / self.display_ar
         self.cell_ar = self.calc_cell_ar()
-        #~ self.pad_buttons_ar()
         self.grid = self.get_grid_size()
         self.cols = self.grid['cols']
         self.rows = self.grid['rows']
@@ -39,8 +41,10 @@ class BG (object):
         self.cell_h = self.grid['cell_h']
         self.cells = len(self.button_imgs)
         self.resize_buttons()
+        self.create_labels()
         self.prepare_buttons()
         self.cell_locations = self.get_cell_locations()
+        #~ self.append_labels()
         self.overlay_buttons()
         dd = 1
     
@@ -49,18 +53,6 @@ class BG (object):
         base_ar = ars.most_common()[0][0] * self.multiplier
         return base_ar
     
-    #~ def calc_cell_ar(self):
-        #~ button_widths = sorted([i.width for i in self.button_imgs])
-        #~ button_heights = sorted([i.height for i in self.button_imgs])
-        #~ widest = button_widths[-1]
-        #~ tallest = button_heights[-1]
-        #~ cell_ar = (widest/tallest)*self.multiplier
-        #~ return cell_ar
-    
-    def pad_buttons_ar(self):
-        for i in self.button_imgs:
-            i.pad_to_ar(self.cell_ar)
-        
     def get_grid_size(self):
         '''
         bg_ar / cell_ar = cols / rows
@@ -145,8 +137,9 @@ class BG (object):
         outer_padding = self.outer_padding * 2
         inner_padding_w = self.inner_padding * (cols - 1)
         inner_padding_h = self.inner_padding * (rows - 1)
+        label_padding_h = self.label_size * rows
         padding_w = outer_padding + inner_padding_w
-        padding_h = outer_padding + inner_padding_h
+        padding_h = outer_padding + inner_padding_h + label_padding_h
         padded_w = bg_w - padding_w
         padded_h = bg_h - padding_h
         col_w = padded_w / cols
@@ -169,6 +162,7 @@ class BG (object):
             sl.border('red', 5)
             i.select = sl
             i.border('white', 5)
+            i.append([self.label_bg])
             i.drop_shadow()
     
     def resize_buttons(self):
@@ -196,7 +190,7 @@ class BG (object):
         cols = self.cols
         rows = self.rows
         cell_w = self.cell_w
-        cell_h = self.cell_h
+        cell_h = self.cell_h + self.label_size
         bg_w = self.width
         bg_h = self.height
         total_cells = list(range(cells))
@@ -216,6 +210,15 @@ class BG (object):
                 c = {'x0': x0, 'y0': y0, 'x1': x1, 'y1': y1}
                 cells.append(c)
         return cells
+    
+    def create_labels(self):
+        if not self.button_labels or not self.label_size > 0:
+            return False
+        self.label_bg = CanvasImg(self.cell_w, self.label_size, 'red')
+    
+    def append_labels(self):
+        for i in self.button_imgs:
+            i.append([self.label_bg])
     
     def overlay_buttons(self):
         hl = self.bg_img.new_canvas()
