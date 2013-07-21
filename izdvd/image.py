@@ -115,6 +115,10 @@ class Img (object):
         self.update_versions(written)
         return written
     
+    def show(self):
+        cmd = ['display', self.path]
+        subprocess.check_call(cmd)
+    
     def transcode(self, out_file=None, out_fmt='png'):
         if out_file is None:
             out_file = self.get_tmpfile('tc', out_fmt)
@@ -548,4 +552,43 @@ class TextImg(Img):
         new_spacing = min([self.get_default_word_spacing(), 
                            self.interword_spacing + smallest_gap])
         self.interword_spacing = new_spacing
+
+
+class CanvasImg(Img):
+    def __init__(self, width, height, color='none'):
+        self.size = width, height
+        self.color=color
+        super(CanvasImg, self).__init__()
+    
+    def write(self, out_file=None, out_fmt='png'):
+        if out_file is None:
+            out_file = self.get_tmpfile('canvas', out_fmt)
+        o = subprocess.check_output(['convert', 
+                                     '-size', '{}x{}'.format(*self.size),
+                                     'xc:{}'.format(self.color),
+                                     out_file], universal_newlines=True)
+        self.update_versions(out_file)
+        return out_file
+        
+        
+
+
+class _PangoTextImg(Img):
+    def __init__(self, text, line_height, font='Sans'):
+        self.text = text
+        self.line_height = line_height
+        self.font = font
+    
+    def get_pt_size(text, font, lh):
+        pts = 0
+        while True:
+            pts += 1
+            pango = 'pango:<span font="{} {}">{}</span>'.format(font, pts, 
+                                                                text)
+            height = subprocess.check_output(['convert', pango, '-format', '%h',
+                                              'info:-'], universal_newlines=True)
+            if int(height) > lh:
+                pt_size = pts - 1
+                return pt_size
+
 
