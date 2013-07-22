@@ -49,35 +49,51 @@ class BG (object):
         dd = 1
     
     def calc_cell_ar(self):
+        '''Gets the most common aspect ratio of all button images.
+        
+        Buttons with any other a/r will be padded to fit in a cell 
+        with this a/r.
+        
+        Returns:    aspect ratio (float)
+                        (corrected for any difference between storage 
+                         and display aspect ratios.)
+        '''
         ars = Counter([i.ar for i in self.button_imgs])
         base_ar = ars.most_common()[0][0] * self.multiplier
         return base_ar
     
     def get_grid_size(self):
-        '''
-        bg_ar / cell_ar = cols / rows
-                          (grid_ratio)
-        buttons = cols * rows
+        '''Determines the optimal layout of rows and columns (i.e., the grid
+        size which maximizes the size of the buttons).
         
-        buttons = rows(gr*rows)
-        buttons = gr * rows^2
-        buttons / gr = rows^2
-        sqrt(buttons / gr) = rows
+        Returns:    a dict containing: 
+                        the number of rows/columns,
+                        the cell width/height
+                        the total area of all cells
+                        the empty space leftover
         
-        buttons = cols * (cols/gr)
-        buttons = cols^2/gr
-        buttons*gr = cols^2
-        sqrt(buttons*gr) = cols
+        # Info about the calculations:
+            bg_ar / cell_ar = cols / rows
+                              (grid_ratio)
+            buttons = cols * rows
+            
+            buttons = rows(gr*rows)
+            buttons = gr * rows^2
+            buttons / gr = rows^2
+            sqrt(buttons / gr) = rows
+            
+            buttons = cols * (cols/gr)
+            buttons = cols^2/gr
+            buttons*gr = cols^2
+            sqrt(buttons*gr) = cols
         '''
-        bg_w = self.width - self.outer_padding
-        bg_h = self.height - self.outer_padding
+        bg_w = self.width - self.outer_padding*2
+        bg_h = self.height - self.outer_padding*2
         bg_ar = bg_w / bg_h
         grid_ratio = bg_ar / self.cell_ar
         buttons = len(self.button_imgs)
-        rows = math.sqrt(buttons / grid_ratio)
-        cols = math.sqrt(buttons * grid_ratio)
-        fcols = math.floor(cols)
-        frows = math.floor(rows)
+        initial_rows = math.floor(math.sqrt(buttons / grid_ratio))
+        initial_cols = math.floor(math.sqrt(buttons * grid_ratio))
         max_area = 0
         min_empty = 9999
         max_methods = []
@@ -88,15 +104,15 @@ class BG (object):
                    {'name': 'UD', 'rounding': (1,0)},
                    {'name': 'UU', 'rounding': (1,1)}]
         for i in methods:
-            mcols = fcols+i['rounding'][0]
-            mrows = frows+i['rounding'][1]
-            empty = mcols*mrows - buttons
+            cols = initial_cols+i['rounding'][0]
+            rows = initial_rows+i['rounding'][1]
+            empty = cols*rows - buttons
             i['empty'] = empty
             if empty >= 0:
-                area, bw, bh = self.get_cell_size(mcols, mrows, self.cell_ar,
-                                                  self.width, self.height)
-                i['cols'] = mcols
-                i['rows'] = mrows
+                area, bw, bh = self.get_cell_size(cols, rows, self.cell_ar,
+                                                  bg_w, bg_h)
+                i['cols'] = cols
+                i['rows'] = rows
                 i['area'] = area
                 i['empty'] = empty
                 i['cell_w'] = bw
@@ -134,14 +150,18 @@ class BG (object):
             print('')
     
     def get_cell_size(self, cols, rows, cell_ar, bg_w, bg_h):
-        outer_padding = self.outer_padding * 2
-        inner_padding_w = self.inner_padding * (cols - 1)
-        inner_padding_h = self.inner_padding * (rows - 1)
+        '''Get the size of a single cell at a given grid size
+            (number of rows/columns, cell aspect ratio, and total width/height)
+        
+        Returns:    area        (float)
+                    cell width  (float; rounded down to nearest pixel)
+                    cell height (float; rounded down to nearest pixel)
+        '''
+        padding_w = self.inner_padding * (cols - 1)
+        padding_h = self.inner_padding * (rows - 1)
         label_padding_h = self.label_size * rows
-        padding_w = outer_padding + inner_padding_w
-        padding_h = outer_padding + inner_padding_h + label_padding_h
         padded_w = bg_w - padding_w
-        padded_h = bg_h - padding_h
+        padded_h = bg_h - padding_h - label_padding_h
         col_w = padded_w / cols
         row_h = padded_h / rows
         cell_w = col_w
@@ -153,6 +173,14 @@ class BG (object):
         return cell_w*cell_h, math.floor(cell_w), math.floor(cell_h)
     
     def prepare_buttons(self):
+        '''Add border and shadow to each button and create new outline images
+        for the hightlight/select subtitles used for moving the cursor around
+        the menu and selecting a button.
+        
+        Returns:    None
+                        (modifies self.button_imgs and adds the 
+                         highlight/select images as an attribute to each.)
+        '''
         for i in self.button_imgs:
             #~ i.resize(self.cell_w, self.cell_h)
             hl = i.new_canvas()
@@ -166,6 +194,13 @@ class BG (object):
             i.drop_shadow()
     
     def resize_buttons(self):
+        '''Resize each button image to fit into the aspect ratio stored in
+        self.cell_ar and corrects for any difference between storage and 
+        display aspect ratios.
+        
+        Returns:    None
+                        (modifies self.button_imgs)
+        '''
         for i in self.button_imgs:
             i.storage_ar = i.ar * self.multiplier
             if i.storage_ar > self.cell_ar:
@@ -186,6 +221,14 @@ class BG (object):
             i.resize(w, h, True)
     
     def get_cell_locations(self):
+        '''Get the coordinates at which to place each button
+        
+        Returns:    cell locations (dict)
+                        x0: left edge
+                        y0: top edge
+                        x1: right edge
+                        y1: bottom edge
+        '''
         cells = self.cells
         cols = self.cols
         rows = self.rows
@@ -212,15 +255,23 @@ class BG (object):
         return cells
     
     def create_labels(self):
+        '''Create images for each label to be placed alongside the button 
+        images.
+        '''
         if not self.button_labels or not self.label_size > 0:
             return False
         self.label_bg = CanvasImg(self.cell_w, self.label_size, 'red')
     
     def append_labels(self):
+        '''Appends label images to button images to create a new image 
+        containing both.
+        '''
         for i in self.button_imgs:
             i.append([self.label_bg])
     
     def overlay_buttons(self):
+        '''Overlays the buttons onto the background image.
+        '''
         hl = self.bg_img.new_canvas()
         sl = self.bg_img.new_canvas()
         for i,cell in enumerate(self.cell_locations):
