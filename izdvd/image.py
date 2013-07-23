@@ -272,6 +272,36 @@ class Img (object):
                                      out_file], 
                                     universal_newlines=True)
         return Img(out_file)
+    
+    def append(self, img_list, vertical=True, gravity='center', 
+               background='none', padding=0, out_file=None, out_fmt='png'):
+        if out_file is None:
+            out_file = self.get_tmpfile('new_layer', out_fmt)
+        imgs = [i.path if isinstance(i, type(self)) else i for i in img_list]
+        if padding:
+            if vertical:
+                pad_size = '0x{}'.format(padding)
+            else:
+                pad_size = '{}x0'.format(padding)
+            pad_img = ['-size', pad_size, 
+                       'xc:{}'.format(background)]
+            img_list = []
+            for i in imgs:
+                img_list.extend(pad_img)
+                img_list.append(i)
+            imgs = img_list
+        if vertical:
+            append_op = '-'
+        else:
+            append_op = '+'
+        o = subprocess.check_output(['convert', self.path, 
+                                     '-background', background,
+                                     '-gravity', gravity] 
+                                     + imgs 
+                                     + ['{}append'.format(append_op), out_file], 
+                                    universal_newlines=True)
+        self.update_versions(out_file)
+        return out_file
 
 
 class TextImg(Img):
@@ -430,11 +460,13 @@ class TextImg(Img):
         subprocess.check_call(cmd)
     
     def get_pts_from_lh(self):
+        text = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        text = '{0}{1}\n{0}{1}'.format(text, text.lower())
         pts = 0
         while True:
             pts += 1
-            w, h = self.get_size(pts)
-            if h > self.line_height:
+            w, h = self.get_size(pts=pts, text=text)
+            if h > self.line_height*2:
                 pt_size = pts - 1
                 return pt_size
     
@@ -547,6 +579,8 @@ class TextImg(Img):
         gaps_per_space = [g / spaces[n] if spaces[n] > 0 else None 
                           for n,g in enumerate(gaps)]
         gps = [i for i in gaps_per_space if i is not None]
+        if not gps:
+            return None
         smallest_gap = min(gps)
         
         new_spacing = min([self.get_default_word_spacing(), 
@@ -559,6 +593,7 @@ class CanvasImg(Img):
         self.size = width, height
         self.color=color
         super(CanvasImg, self).__init__()
+        self.write()
     
     def write(self, out_file=None, out_fmt='png'):
         if out_file is None:
