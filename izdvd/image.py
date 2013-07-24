@@ -12,6 +12,7 @@ import shutil
 import tempfile
 import math
 from collections import deque
+import re
 
 
 class Error(Exception):
@@ -324,6 +325,9 @@ class TextImg(Img):
         self.size = size
         self.background = background
         self.gravity = gravity
+        ref_text = '1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        self.ref_text = '{}{}'.format(ref_text, ref_text.lower())
+        self.ref_text = '{}{}'.format(ref_text, ref_text.lower())
         self.lines = []
         self.line_imgs = []
         #
@@ -340,7 +344,7 @@ class TextImg(Img):
         if self.max_width:
             self.append_lines()
     
-    def get_common_opts(self, interword_spacing=None):
+    def get_common_opts(self, interword_spacing=None, undercolor=None):
         opts = []
         opt_names = ['background', 'gravity', 'font', 'fill', 'stroke', 
                      'strokewidth']
@@ -352,15 +356,18 @@ class TextImg(Img):
         if interword_spacing is None:
             interword_spacing = self.interword_spacing
         opts.extend(['-interword-spacing', str(interword_spacing)])
+        if undercolor is not None:
+            opts.extend(['-undercolor', undercolor])
         return opts
     
-    def get_label_cmd(self, pts=None, text=None, size=None, 
+    def get_label_cmd(self, pts=None, text=None, size=None, undercolor=None,
                       interword_spacing=None):
         if text is None:
             text = self.text
         if pts is None:
             pts = self.pts
-        common_opts = self.get_common_opts(interword_spacing=interword_spacing)
+        common_opts = self.get_common_opts(interword_spacing=interword_spacing,
+                                           undercolor=undercolor)
         if size:
             size = '{}x{}'.format(*size)
             common_opts = ['-size', size] + common_opts
@@ -368,7 +375,7 @@ class TextImg(Img):
         cmd = ['convert'] + common_opts + draw_opts
         return cmd
     
-    def get_annotate_cmd(self, size=None, text=None, pts=None, 
+    def old_get_annotate_cmd(self, size=None, text=None, pts=None, 
                          clear_inner_stroke=None):
         if text is None:
             text = self.text
@@ -379,12 +386,80 @@ class TextImg(Img):
         common_opts = self.get_common_opts()
         if size is None:
             w, h = self.get_size(pts=pts, text=text)
-            w += 50
-            h += 50
+            #~ w += 50
+            #~ h += 50
+            w *= 2
+            h *= 2
         else:
             w, h = size
         size = '{}x{}'.format(w, h)
-        canvas_opts = ['-size', str(size), 'xc:{}'.format(self.background)]
+        #~ canvas_opts = ['-size', str(size), 'xc:{}'.format(self.background)]
+        opts = ['-size', str(size), 
+                'xc:{}'.format(self.background)] + common_opts
+        opts = opts + ['-pointsize', str(pts), '-annotate', '0', text]
+        if clear_inner_stroke:
+            opts = opts + ['-stroke', 'none', '-annotate', '0', text]
+        opts.extend(['-trim', '+repage'])
+        cmd = ['convert'] + opts
+        return cmd
+
+    def get_annotate_cmd(self, size=None, text=None, pts=None, 
+                         clear_inner_stroke=None, crop_to_pts_orig=True,
+                         crop_only=False):
+        if text is None:
+            text = self.text
+        if pts is None:
+            pts = self.pts
+        if clear_inner_stroke is None:
+            clear_inner_stroke = self.clear_inner_stroke
+        if size is None:
+            w, h = self.get_size(pts=pts, text=self.ref_text)
+            w *= 2
+            h *= 2
+        else:
+            w, h = size
+        size = '{}x{}'.format(w, h)
+        undercolor = 'magenta'
+        if self.background == 'magenta':
+            undercolor = 'cyan'
+
+        canvas_opts = ['-size', str(size), 
+                       'xc:{}'.format(self.background)]
+        common_opts = self.get_common_opts()
+        draw_opts = ['-pointsize', str(pts), '-annotate', '0']
+        draw_opts_y = draw_opts[:]
+        if crop_to_pts_orig and hasattr(self, 'pts_orig'):
+            draw_opts_y[1] = str(self.pts_orig)
+        format_opts = ['-format', '%w;%h;%X;%Y', '-trim']
+        
+        cmd_common = ['convert'] + canvas_opts + common_opts
+        cmd_size = cmd_common + ['-undercolor', undercolor] + draw_opts
+        cmd_y = (cmd_common + ['-undercolor', undercolor] + draw_opts_y +
+                [self.ref_text] + format_opts + ['info:'])
+        #~ cmd_y = cmd_size + [self.ref_text] + format_opts + ['info:']
+        cmd_x = cmd_size + [text] + format_opts + ['info:']
+        dims_y = subprocess.check_output(cmd_y, universal_newlines=True)
+        dims_x = subprocess.check_output(cmd_x, universal_newlines=True)
+        nw, h, nx, y = dims_y.split(';')
+        w, nh, x, ny = dims_x.split(';')
+        crop = '{}x{}{}{}'.format(w, h, x, y)
+        crop_opts = ['+gravity', '-crop', crop]
+        if crop_only:
+            return crop
+        
+        cmd = cmd_common + draw_opts + [text]
+        if clear_inner_stroke:
+            cmd.extend(['-stroke', 'none', '-annotate', '0', text])
+        cmd.extend(crop_opts)
+        return cmd
+
+        
+        if clear_inner_stroke:
+            draw_opts.extend(['-stroke', 'none', '-annotate', '0', text])
+
+
+
+        #~ canvas_opts = ['-size', str(size), 'xc:{}'.format(self.background)]
         opts = ['-size', str(size), 
                 'xc:{}'.format(self.background)] + common_opts
         opts = opts + ['-pointsize', str(pts), '-annotate', '0', text]
@@ -399,9 +474,13 @@ class TextImg(Img):
             text = self.text
         if pts is None:
             pts = self.pts
+        undercolor = 'magenta'
+        if self.background == 'magenta':
+            undercolor = 'cyan'
         label_cmd = self.get_label_cmd(text=text, pts=pts, 
-                                       interword_spacing=interword_spacing)
-        cmd = label_cmd + ['-trim', '+repage', '-format', '%w;%h', 'info:']
+                                       interword_spacing=interword_spacing,
+                                       undercolor=undercolor)
+        cmd = label_cmd + ['-trim', '-format', '%w;%h', 'info:']
         size = subprocess.check_output(cmd, universal_newlines=True)
         w, h = size.split(';')
         return (float(w), float(h))
@@ -460,13 +539,18 @@ class TextImg(Img):
         subprocess.check_call(cmd)
     
     def get_pts_from_lh(self):
-        text = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        text = '{0}{1}\n{0}{1}'.format(text, text.lower())
+        text = '1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        text = '{0}{1}'.format(text, text.lower())
+        results = []
         pts = 0
         while True:
             pts += 1
-            w, h = self.get_size(pts=pts, text=text)
-            if h > self.line_height*2:
+            w,h,x,y = re.split(r'[x+]', self.get_annotate_cmd(text=text, 
+                                                              pts=pts, 
+                                                              crop_only=True))
+            h = float(h)
+            results.append((pts, h))
+            if h > self.line_height:
                 pt_size = pts - 1
                 return pt_size
     
