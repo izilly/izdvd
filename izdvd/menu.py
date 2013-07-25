@@ -6,7 +6,7 @@
 #  The full license is in the file LICENSE, distributed with this software.
 #
 
-from izdvd.image import Img, CanvasImg
+from izdvd.image import Img, CanvasImg, TextImg
 import subprocess
 import math
 from collections import Counter
@@ -14,37 +14,36 @@ import argparse
 
 
 class BG (object):
-    def __init__(self, bg_img, button_imgs, button_labels=None, label_size=0,
-                 label_lines=2, outer_padding=30, inner_padding=30, 
+    def __init__(self, bg_img, button_imgs, 
+                 button_labels=None, label_line_height=0, label_lines=2, 
+                 label_padding=5, outer_padding=30, inner_padding=30, 
                  display_ar=None):
         self.bg_img = Img(bg_img)
         self.button_imgs = [Img(i) for i in button_imgs]
         self.button_labels = button_labels
-        self.label_size = label_size
+        self.label_line_height = label_line_height
+        self.label_lines = label_lines
+        self.label_padding = label_padding
         self.outer_padding = outer_padding
         self.inner_padding = inner_padding
         self.width = self.bg_img.width
         self.height = self.bg_img.height
-        #~ self.usable_w = self.width - self.outer_padding
-        #~ self.usable_h = self.height - self.outer_padding
         self.storage_ar = self.width / self.height
         if display_ar is None:
             self.display_ar = self.storage_ar
         else:
             self.display_ar = display_ar
         self.multiplier = self.storage_ar / self.display_ar
-        self.cell_ar = self.calc_cell_ar()
-        self.grid = self.get_grid_size()
-        self.cols = self.grid['cols']
-        self.rows = self.grid['rows']
-        self.cell_w = self.grid['cell_w']
-        self.cell_h = self.grid['cell_h']
         self.cells = len(self.button_imgs)
+        #
+        self.calc_cell_ar()
+        self.get_grid_size()
         self.resize_buttons()
-        self.create_labels()
         self.prepare_buttons()
-        self.cell_locations = self.get_cell_locations()
-        #~ self.append_labels()
+        self.create_labels()
+        self.append_labels()
+        self.apply_shadows()
+        self.get_cell_locations()
         self.overlay_buttons()
         dd = 1
     
@@ -60,7 +59,7 @@ class BG (object):
         '''
         ars = Counter([i.ar for i in self.button_imgs])
         base_ar = ars.most_common()[0][0] * self.multiplier
-        return base_ar
+        self.cell_ar = base_ar
     
     def get_grid_size(self):
         '''Determines the optimal layout of rows and columns (i.e., the grid
@@ -126,6 +125,15 @@ class BG (object):
         best_methods = [i for i in max_methods if i['empty'] == least_empty]
         tied_methods = [i for i in max_methods if i not in best_methods]
         other_methods = [i for i in sufficient if i not in max_methods]
+        best = best_methods[0]
+        self.grid = best
+        self.cols = best['cols']
+        self.rows = best['rows']
+        self.cell_w = best['cell_w']
+        self.cell_h = best['cell_h']
+        
+        
+        
         return best_methods[0]
         
         print('Best:')
@@ -159,7 +167,8 @@ class BG (object):
         '''
         padding_w = self.inner_padding * (cols - 1)
         padding_h = self.inner_padding * (rows - 1)
-        label_padding_h = self.label_size * rows
+        label_padding_h = (self.label_line_height*self.label_lines 
+                           + self.label_padding) * rows
         padded_w = bg_w - padding_w
         padded_h = bg_h - padding_h - label_padding_h
         col_w = padded_w / cols
@@ -171,27 +180,6 @@ class BG (object):
             cell_w = cell_h*cell_ar
         # return area, cell_width, cell_height
         return cell_w*cell_h, math.floor(cell_w), math.floor(cell_h)
-    
-    def prepare_buttons(self):
-        '''Add border and shadow to each button and create new outline images
-        for the hightlight/select subtitles used for moving the cursor around
-        the menu and selecting a button.
-        
-        Returns:    None
-                        (modifies self.button_imgs and adds the 
-                         highlight/select images as an attribute to each.)
-        '''
-        for i in self.button_imgs:
-            #~ i.resize(self.cell_w, self.cell_h)
-            hl = i.new_canvas()
-            hl.border('green', 5)
-            i.highlight = hl
-            sl = i.new_canvas()
-            sl.border('red', 5)
-            i.select = sl
-            i.border('white', 5)
-            i.append([self.label_bg])
-            i.drop_shadow()
     
     def resize_buttons(self):
         '''Resize each button image to fit into the aspect ratio stored in
@@ -220,6 +208,59 @@ class BG (object):
                 i.y_padding = 0
             i.resize(w, h, True)
     
+    def prepare_buttons(self):
+        '''Add border and shadow to each button and create new outline images
+        for the hightlight/select subtitles used for moving the cursor around
+        the menu and selecting a button.
+        
+        Returns:    None
+                        (modifies self.button_imgs and adds the 
+                         highlight/select images as an attribute to each.)
+        '''
+        for i in self.button_imgs:
+            #~ i.resize(self.cell_w, self.cell_h)
+            hl = i.new_canvas()
+            hl.border('green', 5)
+            i.highlight = hl
+            sl = i.new_canvas()
+            sl.border('red', 5)
+            i.select = sl
+            i.border('white', 5)
+            #~ i.append([self.label_bg], padding=self.label_padding)
+            #~ i.drop_shadow()
+    
+    def create_labels(self):
+        '''Create images for each label to be placed alongside the button 
+        images.
+        '''
+        if not self.button_labels or not self.label_line_height > 0:
+            return False
+        button_w = max([i.get_width() for i in self.button_imgs])
+        labels = []
+        for i in self.button_labels:
+            img = TextImg(i, line_height=self.label_line_height, 
+                                  max_width=button_w, 
+                                  max_lines=self.label_lines,
+                                  strokewidth=4)
+            labels.append(img)
+        height = max([i.get_height() for i in labels])
+        for i in labels:
+            if i.get_height() < height:
+                i.pad_to(new_w=i.get_width(), new_h=height)
+        self.label_imgs = labels
+        #~ self.label_bg = CanvasImg(button_w, self.label_line_height, 'red')
+    
+    def append_labels(self):
+        '''Appends label images to button images to create a new image 
+        containing both.
+        '''
+        for n,img in enumerate(self.button_imgs):
+            img.append([self.label_imgs[n]], padding=self.label_padding)
+    
+    def apply_shadows(self):
+        for i in self.button_imgs:
+            i.drop_shadow()
+    
     def get_cell_locations(self):
         '''Get the coordinates at which to place each button
         
@@ -233,7 +274,7 @@ class BG (object):
         cols = self.cols
         rows = self.rows
         cell_w = self.cell_w
-        cell_h = self.cell_h + self.label_size
+        cell_h = self.cell_h + self.label_line_height + self.label_padding
         bg_w = self.width
         bg_h = self.height
         total_cells = list(range(cells))
@@ -252,22 +293,7 @@ class BG (object):
                 y1 = y0 + cell_h
                 c = {'x0': x0, 'y0': y0, 'x1': x1, 'y1': y1}
                 cells.append(c)
-        return cells
-    
-    def create_labels(self):
-        '''Create images for each label to be placed alongside the button 
-        images.
-        '''
-        if not self.button_labels or not self.label_size > 0:
-            return False
-        self.label_bg = CanvasImg(self.cell_w, self.label_size, 'red')
-    
-    def append_labels(self):
-        '''Appends label images to button images to create a new image 
-        containing both.
-        '''
-        for i in self.button_imgs:
-            i.append([self.label_bg])
+        self.cell_locations = cells
     
     def overlay_buttons(self):
         '''Overlays the buttons onto the background image.
