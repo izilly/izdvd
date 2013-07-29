@@ -684,6 +684,7 @@ class TextImg(Img):
                 return i
     
     def _ellipsize_lines(self, lines, pts=None, interword_spacing=None):
+        # TODO: this is a mess...
         for n,i in enumerate(lines['used']):
             if i['trim'] is True:
                 i['trim'] = self._get_trim_chars(i['line'], pts, 
