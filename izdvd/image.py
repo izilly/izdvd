@@ -325,9 +325,9 @@ class TextImg(Img):
         self.size = size
         self.background = background
         self.gravity = gravity
-        ref_text = '1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        self.ref_text = '{}{}'.format(ref_text, ref_text.lower())
-        self.ref_text = '{}{}'.format(ref_text, ref_text.lower())
+        self.ref_text = '{}{}{}'.format('1234567890', 
+                                        'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+                                        'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.lower())
         self.lines = []
         self.line_imgs = []
         #
@@ -403,15 +403,18 @@ class TextImg(Img):
         cmd = ['convert'] + opts
         return cmd
 
-    def get_annotate_cmd(self, size=None, text=None, pts=None, 
-                         clear_inner_stroke=None, crop_to_pts_orig=True,
-                         crop_only=False):
+    def ooget_annotate_cmd(self, size=None, text=None, pts=None, 
+                         clear_inner_stroke=None, interword_spacing=None,
+                         crop_to_pts_orig=True,
+                         return_dims=False):
         if text is None:
             text = self.text
         if pts is None:
             pts = self.pts
         if clear_inner_stroke is None:
             clear_inner_stroke = self.clear_inner_stroke
+        if interword_spacing is None:
+            interword_spacing = self.interword_spacing
         if size is None:
             w, h = self.get_size(pts=pts, text=self.ref_text)
             w *= 2
@@ -425,7 +428,7 @@ class TextImg(Img):
 
         canvas_opts = ['-size', str(size), 
                        'xc:{}'.format(self.background)]
-        common_opts = self.get_common_opts()
+        common_opts = self.get_common_opts(interword_spacing=interword_spacing)
         draw_opts = ['-pointsize', str(pts), '-annotate', '0']
         draw_opts_y = draw_opts[:]
         if crop_to_pts_orig and hasattr(self, 'pts_orig'):
@@ -444,8 +447,8 @@ class TextImg(Img):
         w, nh, x, ny = dims_x.split(';')
         crop = '{}x{}{}{}'.format(w, h, x, y)
         crop_opts = ['+gravity', '-crop', crop]
-        if crop_only:
-            return crop
+        if return_dims:
+            return int(w), int(h), float(x), float(y)
         
         cmd = cmd_common + draw_opts + [text]
         if clear_inner_stroke:
@@ -468,8 +471,70 @@ class TextImg(Img):
         opts.extend(['-trim', '+repage'])
         cmd = ['convert'] + opts
         return cmd
+    
+    def get_annotate_cmd(self, size=None, text=None, pts=None, 
+                          clear_inner_stroke=None, interword_spacing=None):
+        if size is None:
+            size = self.get_size(text=text, pts=pts, 
+                                 interword_spacing=interword_spacing)
+        cmd = self.get_annotate_opts(size=size, text=text, pts=pts, 
+                                      clear_inner_stroke=clear_inner_stroke,
+                                      interword_spacing=interword_spacing)
+        return cmd
         
-    def get_size(self, pts=None, text=None, interword_spacing=None):
+    
+    def get_annotate_opts(self, size=None, text=None, pts=None, 
+                          clear_inner_stroke=None, interword_spacing=None,
+                          use_undercolor=False):
+        if text is None:
+            text = self.text
+        if pts is None:
+            pts = self.pts
+        if size is None:
+            h = len(text.splitlines()) * pts * 10 + self.strokewidth * 10
+            w = len(text) * pts * 10 + self.strokewidth * 10
+        else:
+            w, h = size
+        if clear_inner_stroke is None:
+            clear_inner_stroke = self.clear_inner_stroke
+        if interword_spacing is None:
+            interword_spacing = self.interword_spacing
+        
+        size = '{}x{}'.format(w, h)
+        undercolor = 'magenta'
+        if self.background == 'magenta':
+            undercolor = 'cyan'
+
+        canvas_opts = ['-size', size, 'xc:{}'.format(self.background)]
+        common_opts = self.get_common_opts(interword_spacing=interword_spacing)
+        draw_opts = ['-pointsize', str(pts), '-annotate', '0', text]
+        if use_undercolor:
+            draw_opts = ['-undercolor', undercolor] + draw_opts
+        if clear_inner_stroke:
+            draw_opts += ['-stroke', 'none', '-annotate', '0', text]
+        format_opts = ['-format', '%w;%h;%X;%Y']
+        
+        cmd = ['convert'] + canvas_opts + common_opts + draw_opts + format_opts
+        return cmd
+    
+    def get_size(self, text=None, pts=None, interword_spacing=None):
+        cmd_h = self.get_annotate_opts(text=self.ref_text, pts=pts, 
+                                      interword_spacing=interword_spacing,
+                                      use_undercolor=True,
+                                      clear_inner_stroke=False)
+        cmd_h += ['-trim', 'info:']
+        cmd_w = self.get_annotate_opts(text=text, pts=pts, 
+                                      interword_spacing=interword_spacing,
+                                      use_undercolor=True,
+                                      clear_inner_stroke=False)
+        cmd_w += ['-trim', 'info:']
+        out_h = subprocess.check_output(cmd_h, universal_newlines=True)
+        out_w = subprocess.check_output(cmd_w, universal_newlines=True)
+        z,h,z,z = out_h.split(';')
+        w,z,z,z = out_w.split(';')
+        return (float(w), float(h))
+    
+    def old_get_size(self, pts=None, text=None, interword_spacing=None):
         if text is None:
             text = self.text
         if pts is None:
@@ -538,17 +603,27 @@ class TextImg(Img):
             cmd = cmd + ['show:']
         subprocess.check_call(cmd)
     
-    def get_pts_from_lh(self):
+    def old_get_pts_from_lh(self):
         text = '1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         text = '{0}{1}'.format(text, text.lower())
         results = []
         pts = 0
         while True:
             pts += 1
-            w,h,x,y = re.split(r'[x+]', self.get_annotate_cmd(text=text, 
-                                                              pts=pts, 
-                                                              crop_only=True))
+            w,h,x,y = self.get_annotate_cmd(text=text, pts=pts, 
+                                            return_dims=True)
             h = float(h)
+            results.append((pts, h))
+            if h > self.line_height:
+                pt_size = pts - 1
+                return pt_size
+
+    def get_pts_from_lh(self):
+        results = []
+        pts = 0
+        while True:
+            pts += 1
+            w,h = self.get_size(pts=pts)
             results.append((pts, h))
             if h > self.line_height:
                 pt_size = pts - 1
@@ -560,13 +635,121 @@ class TextImg(Img):
         default = zero - one + 1
         return default
     
+    def _split_lines(self, text, pts, interword_spacing):
+        words = text.split(' ')
+        # each line is a tuple: 
+            # 0: list of words
+            # 1: ellipsis info (True=needs to be ellipsized; int=chars to remove)
+        #~ lines = [([], 0)]
+        lines = [{'line':[], 'trim':0}]
+        while words:
+            w = words.pop(0)
+            #~ width, h, x, y = self.get_size(text=' '.join(lines[-1][0] + [w]), 
+                                           #~ pts=pts,
+                                           #~ interword_spacing=interword_spacing)
+            #~ width, h, x, y = self.get_annotate_cmd(text=' '.join(lines[-1][0] + [w]), 
+                                           #~ pts=pts,
+                                           #~ interword_spacing=interword_spacing,
+                                           #~ return_dims=True)
+            width, h = self.get_size(text=' '.join(lines[-1]['line'] + [w]), 
+                                           pts=pts,
+                                           interword_spacing=interword_spacing)
+            if width <= self.max_width:
+                lines[-1]['line'].append(w)
+            else:
+                if len(lines) == self.max_lines:
+                    words = [w] + words
+                    break
+                # append a new line only if current line isn't empty
+                if lines[-1]['line']:
+                    #~ lines.append(([w], 0))
+                    lines.append({'line':[w], 'trim':0})
+                # else add word to the current line even if it's too long
+                else:
+                    lines[-1]['line'].append(w)
+                    lines[-1]['trim'] = True
+        if words and lines[-1]['trim'] is not True:
+            lines[-1]['trim'] = True
+            lines[-1]['line'].append(words.pop(0))
+        lines = {'used': lines, 'unused': words}
+        #~ lines = (lines, words)
+        return lines
+    
+    def _get_trim_chars(self, line, pts=None, interword_spacing=None):
+        text = ' '.join(line)
+        for i in range(1, len(text)):
+            width,h = self.get_size(text[:-i]+'...', pts=pts, 
+                                    interword_spacing=interword_spacing)
+            if width <= self.max_width:
+                return i
+    
+    def _ellipsize_lines(self, lines, pts=None, interword_spacing=None):
+        for n,i in enumerate(lines['used']):
+            if i['trim'] is True:
+                i['trim'] = self._get_trim_chars(i['line'], pts, 
+                                                 interword_spacing)
+                if i['trim'] >= len(i['line'][-1]):
+                    if n == lines['used'].index(i):
+                        lines['unused'][:0] = [i['line'].pop()]
+                        i['trim'] = self._get_trim_chars(i['line'], pts, 
+                                                         interword_spacing)
+                    else:
+                        raise
+        return lines
+    
+    def _count_words(self, lines):
+        trimmed = len([i for i in lines['used'] if i['trim']])
+        unused = len(lines['unused']) + trimmed
+        lines['len_excluded'] = unused
+    
+    def _fit_wrapping(self, pts_adjust=.1, spacing_adjust=.5):
+        pts = self.pts
+        pts_min = pts - pts * pts_adjust
+        spacing = self.get_default_word_spacing()
+        spacing_min = spacing - spacing * spacing_adjust
+        
+        lines_default = self._split_lines(self.text, pts, 0)
+        lines_default = self._ellipsize_lines(lines_default)
+        self._count_words(lines_default)
+
+        lines_min = self._split_lines(self.text, pts_min, spacing_min)
+        lines_min = self._ellipsize_lines(lines_min, pts_min, spacing_min)
+        self._count_words(lines_min)
+        
+        if lines_min['len_excluded'] == lines_default['len_excluded']:
+            self.lines = lines_default
+            return
+        
+        lines_med = self._split_lines(self.text, pts, spacing_min)
+        lines_med = self._ellipsize_lines(lines_med, pts, spacing_min)
+        self._count_words(lines_med)
+        
+        self.interword_spacing = spacing_min
+        
+        if lines_med['len_excluded'] == lines_min['len_excluded']:
+            self.lines = lines_med
+            return
+        else:
+            self.pts = pts_min
+            self.lines = lines_min
+            return
+    
+    def _maximize_pts(self, lines):
+        pass
+    
     def wrap_text(self):
+        #~ lines = self._split_lines(self.text, self.pts, self.interword_spacing)
+        #~ lines = self._ellipsize_lines(lines)
+        self._fit_wrapping()
+    
+    
+    def old_wrap_text(self):
         self._fit_wrapping()
         self._minimize_raggedness()
         self._maximize_pts()
         self._maximize_word_spacing()
     
-    def _get_wrapped(self, text=None, pts=None, interword_spacing=None):
+    def old__get_wrapped(self, text=None, pts=None, interword_spacing=None):
         # word-spacing:     no less than 1/2 of default
         if text is None:
             text = self.text
@@ -586,7 +769,7 @@ class TextImg(Img):
                 lines.append([w])
         return lines[:self.max_lines]
     
-    def _fit_wrapping(self, pts_adjust=.1, spacing_adjust=.5):
+    def old__fit_wrapping(self, pts_adjust=.1, spacing_adjust=.5):
         pts = self.pts
         pts_min = pts - pts * pts_adjust
         spacing = self.get_default_word_spacing()
@@ -616,7 +799,7 @@ class TextImg(Img):
             self.lines = lines_min
             return
     
-    def _minimize_raggedness(self):
+    def old__minimize_raggedness(self):
         mw = self.max_width
         lines = self.lines[:]
         lines.reverse()
@@ -644,7 +827,7 @@ class TextImg(Img):
         lines.reverse()
         self.lines = lines
     
-    def _maximize_pts(self):
+    def old__maximize_pts(self):
         pts = math.floor(self.pts) - 1
         while True:
             pts += 1
@@ -656,7 +839,7 @@ class TextImg(Img):
                 break
         self.pts = pts - 1
         
-    def _maximize_word_spacing(self):
+    def old__maximize_word_spacing(self):
         widths = [self.get_size(text=' '.join(i))[0] for i in self.lines]
         gaps = [self.max_width - i for i in widths]
         spaces = [len(i) - 1 for i in self.lines]
