@@ -375,103 +375,6 @@ class TextImg(Img):
         cmd = ['convert'] + common_opts + draw_opts
         return cmd
     
-    def old_get_annotate_cmd(self, size=None, text=None, pts=None, 
-                         clear_inner_stroke=None):
-        if text is None:
-            text = self.text
-        if pts is None:
-            pts = self.pts
-        if clear_inner_stroke is None:
-            clear_inner_stroke = self.clear_inner_stroke
-        common_opts = self.get_common_opts()
-        if size is None:
-            w, h = self.get_size(pts=pts, text=text)
-            #~ w += 50
-            #~ h += 50
-            w *= 2
-            h *= 2
-        else:
-            w, h = size
-        size = '{}x{}'.format(w, h)
-        #~ canvas_opts = ['-size', str(size), 'xc:{}'.format(self.background)]
-        opts = ['-size', str(size), 
-                'xc:{}'.format(self.background)] + common_opts
-        opts = opts + ['-pointsize', str(pts), '-annotate', '0', text]
-        if clear_inner_stroke:
-            opts = opts + ['-stroke', 'none', '-annotate', '0', text]
-        opts.extend(['-trim', '+repage'])
-        cmd = ['convert'] + opts
-        return cmd
-
-    def ooget_annotate_cmd(self, size=None, text=None, pts=None, 
-                         clear_inner_stroke=None, interword_spacing=None,
-                         crop_to_pts_orig=True,
-                         return_dims=False):
-        if text is None:
-            text = self.text
-        if pts is None:
-            pts = self.pts
-        if clear_inner_stroke is None:
-            clear_inner_stroke = self.clear_inner_stroke
-        if interword_spacing is None:
-            interword_spacing = self.interword_spacing
-        if size is None:
-            w, h = self.get_size(pts=pts, text=self.ref_text)
-            w *= 2
-            h *= 2
-        else:
-            w, h = size
-        size = '{}x{}'.format(w, h)
-        undercolor = 'magenta'
-        if self.background == 'magenta':
-            undercolor = 'cyan'
-
-        canvas_opts = ['-size', str(size), 
-                       'xc:{}'.format(self.background)]
-        common_opts = self.get_common_opts(interword_spacing=interword_spacing)
-        draw_opts = ['-pointsize', str(pts), '-annotate', '0']
-        draw_opts_y = draw_opts[:]
-        if crop_to_pts_orig and hasattr(self, 'pts_orig'):
-            draw_opts_y[1] = str(self.pts_orig)
-        format_opts = ['-format', '%w;%h;%X;%Y', '-trim']
-        
-        cmd_common = ['convert'] + canvas_opts + common_opts
-        cmd_size = cmd_common + ['-undercolor', undercolor] + draw_opts
-        cmd_y = (cmd_common + ['-undercolor', undercolor] + draw_opts_y +
-                [self.ref_text] + format_opts + ['info:'])
-        #~ cmd_y = cmd_size + [self.ref_text] + format_opts + ['info:']
-        cmd_x = cmd_size + [text] + format_opts + ['info:']
-        dims_y = subprocess.check_output(cmd_y, universal_newlines=True)
-        dims_x = subprocess.check_output(cmd_x, universal_newlines=True)
-        nw, h, nx, y = dims_y.split(';')
-        w, nh, x, ny = dims_x.split(';')
-        crop = '{}x{}{}{}'.format(w, h, x, y)
-        crop_opts = ['+gravity', '-crop', crop]
-        if return_dims:
-            return int(w), int(h), float(x), float(y)
-        
-        cmd = cmd_common + draw_opts + [text]
-        if clear_inner_stroke:
-            cmd.extend(['-stroke', 'none', '-annotate', '0', text])
-        cmd.extend(crop_opts)
-        return cmd
-
-        
-        if clear_inner_stroke:
-            draw_opts.extend(['-stroke', 'none', '-annotate', '0', text])
-
-
-
-        #~ canvas_opts = ['-size', str(size), 'xc:{}'.format(self.background)]
-        opts = ['-size', str(size), 
-                'xc:{}'.format(self.background)] + common_opts
-        opts = opts + ['-pointsize', str(pts), '-annotate', '0', text]
-        if clear_inner_stroke:
-            opts = opts + ['-stroke', 'none', '-annotate', '0', text]
-        opts.extend(['-trim', '+repage'])
-        cmd = ['convert'] + opts
-        return cmd
-    
     def get_annotate_cmd(self, size=None, text=None, pts=None, 
                           clear_inner_stroke=None, interword_spacing=None):
         if size is None:
@@ -482,7 +385,6 @@ class TextImg(Img):
                                       interword_spacing=interword_spacing)
         return cmd
         
-    
     def get_annotate_opts(self, size=None, text=None, pts=None, 
                           clear_inner_stroke=None, interword_spacing=None,
                           use_undercolor=False):
@@ -532,22 +434,6 @@ class TextImg(Img):
         out_w = subprocess.check_output(cmd_w, universal_newlines=True)
         z,h,z,z = out_h.split(';')
         w,z,z,z = out_w.split(';')
-        return (float(w), float(h))
-    
-    def old_get_size(self, pts=None, text=None, interword_spacing=None):
-        if text is None:
-            text = self.text
-        if pts is None:
-            pts = self.pts
-        undercolor = 'magenta'
-        if self.background == 'magenta':
-            undercolor = 'cyan'
-        label_cmd = self.get_label_cmd(text=text, pts=pts, 
-                                       interword_spacing=interword_spacing,
-                                       undercolor=undercolor)
-        cmd = label_cmd + ['-trim', '-format', '%w;%h', 'info:']
-        size = subprocess.check_output(cmd, universal_newlines=True)
-        w, h = size.split(';')
         return (float(w), float(h))
     
     def write(self, cmd=None, out_dir=None, out_basename=None):
@@ -603,21 +489,6 @@ class TextImg(Img):
             cmd = cmd + ['show:']
         subprocess.check_call(cmd)
     
-    def old_get_pts_from_lh(self):
-        text = '1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        text = '{0}{1}'.format(text, text.lower())
-        results = []
-        pts = 0
-        while True:
-            pts += 1
-            w,h,x,y = self.get_annotate_cmd(text=text, pts=pts, 
-                                            return_dims=True)
-            h = float(h)
-            results.append((pts, h))
-            if h > self.line_height:
-                pt_size = pts - 1
-                return pt_size
-
     def get_pts_from_lh(self):
         results = []
         pts = 0
@@ -635,73 +506,8 @@ class TextImg(Img):
         default = zero - one + 1
         return default
     
-    def _split_lines(self, text, pts, interword_spacing):
-        words = text.split(' ')
-        # each line is a tuple: 
-            # 0: list of words
-            # 1: ellipsis info (True=needs to be ellipsized; int=chars to remove)
-        #~ lines = [([], 0)]
-        lines = [{'line':[], 'trim':0}]
-        while words:
-            w = words.pop(0)
-            #~ width, h, x, y = self.get_size(text=' '.join(lines[-1][0] + [w]), 
-                                           #~ pts=pts,
-                                           #~ interword_spacing=interword_spacing)
-            #~ width, h, x, y = self.get_annotate_cmd(text=' '.join(lines[-1][0] + [w]), 
-                                           #~ pts=pts,
-                                           #~ interword_spacing=interword_spacing,
-                                           #~ return_dims=True)
-            width, h = self.get_size(text=' '.join(lines[-1]['line'] + [w]), 
-                                           pts=pts,
-                                           interword_spacing=interword_spacing)
-            if width <= self.max_width:
-                lines[-1]['line'].append(w)
-            else:
-                if len(lines) == self.max_lines:
-                    words = [w] + words
-                    break
-                # append a new line only if current line isn't empty
-                if lines[-1]['line']:
-                    #~ lines.append(([w], 0))
-                    lines.append({'line':[w], 'trim':0})
-                # else add word to the current line even if it's too long
-                else:
-                    lines[-1]['line'].append(w)
-                    lines[-1]['trim'] = True
-        if words and lines[-1]['trim'] is not True:
-            lines[-1]['trim'] = True
-            lines[-1]['line'].append(words.pop(0))
-        lines = {'used': lines, 'unused': words}
-        #~ lines = (lines, words)
-        return lines
-    
-    def _get_trim_chars(self, line, pts=None, interword_spacing=None):
-        text = ' '.join(line)
-        for i in range(1, len(text)):
-            width,h = self.get_size(text[:-i]+'...', pts=pts, 
-                                    interword_spacing=interword_spacing)
-            if width <= self.max_width:
-                return i
-    
-    def _ellipsize_lines(self, lines, pts=None, interword_spacing=None):
-        # TODO: this is a mess...
-        for n,i in enumerate(lines['used']):
-            if i['trim'] is True:
-                i['trim'] = self._get_trim_chars(i['line'], pts, 
-                                                 interword_spacing)
-                if i['trim'] >= len(i['line'][-1]):
-                    if n == lines['used'].index(i):
-                        lines['unused'][:0] = [i['line'].pop()]
-                        i['trim'] = self._get_trim_chars(i['line'], pts, 
-                                                         interword_spacing)
-                    else:
-                        raise
-        return lines
-    
-    def _count_words(self, lines):
-        trimmed = len([i for i in lines['used'] if i['trim']])
-        unused = len(lines['unused']) + trimmed
-        lines['len_excluded'] = unused
+    def wrap_text(self):
+        self._fit_wrapping()
     
     def _fit_wrapping(self, pts_adjust=.1, spacing_adjust=.5):
         pts = self.pts
@@ -735,14 +541,67 @@ class TextImg(Img):
             self.lines = lines_min
             return
     
-    def _maximize_pts(self, lines):
-        pass
+    def _split_lines(self, text, pts, interword_spacing):
+        words = text.split(' ')
+        # each line is a tuple: 
+            # 0: list of words
+            # 1: ellipsis info (True=needs to be ellipsized; int=chars to remove)
+        #~ lines = [([], 0)]
+        lines = [{'line':[], 'trim':0}]
+        while words:
+            w = words.pop(0)
+            width, h = self.get_size(text=' '.join(lines[-1]['line'] + [w]), 
+                                           pts=pts,
+                                           interword_spacing=interword_spacing)
+            if width <= self.max_width:
+                lines[-1]['line'].append(w)
+            else:
+                if len(lines) == self.max_lines:
+                    words = [w] + words
+                    break
+                # append a new line only if current line isn't empty
+                if lines[-1]['line']:
+                    #~ lines.append(([w], 0))
+                    lines.append({'line':[w], 'trim':0})
+                # else add word to the current line even if it's too long
+                else:
+                    lines[-1]['line'].append(w)
+                    lines[-1]['trim'] = True
+        lines = {'used': lines, 'unused': words}
+        return lines
     
-    def wrap_text(self):
-        #~ lines = self._split_lines(self.text, self.pts, self.interword_spacing)
-        #~ lines = self._ellipsize_lines(lines)
-        self._fit_wrapping()
+    def _get_trimmed_len(self, line, pts=None, interword_spacing=None):
+        text = ' '.join(line)
+        for i in range(len(text)+1):
+            width,h = self.get_size(text[:i]+'...', pts=pts, 
+                                    interword_spacing=interword_spacing)
+            if width > self.max_width:
+                return i - 1
+        return False
     
+    def _ellipsize_lines(self, lines, pts=None, interword_spacing=None):
+        for n,i in enumerate(lines['used']):
+            if i['trim'] is True:
+                i['trim'] = self._get_trim_chars(i['line'], pts, 
+                                                 interword_spacing)
+        
+        last_used = lines['used'][-1]
+        unused = lines['unused']
+        if unused:
+            for i in range(len(unused)+1):
+                trim = self._get_trimmed_len(last_used['line']+unused[:i], pts,
+                                             interword_spacing)
+                if trim:
+                    last_used['trim'] = trim
+                    last_used['line'] += unused[:i]
+                    lines['unused'] = unused[i:]
+                    return lines
+        return False
+        
+    def _count_words(self, lines):
+        trimmed = len([i for i in lines['used'] if i['trim']])
+        unused = len(lines['unused']) + trimmed
+        lines['len_excluded'] = unused
     
     def old_wrap_text(self):
         self._fit_wrapping()
