@@ -337,7 +337,8 @@ class TextImg(Img):
         if self.max_width:
             self.wrap_text()
         else:
-            self.lines = [self.text.split(' ')]
+            lines = [{'line': self.text.split(' '), 'trim':False}]
+            self.lines = {'used': lines, 'unused': []}
         self.get_draw_cmd = self.get_annotate_cmd
         super(TextImg, self).__init__()
         self.write()
@@ -454,8 +455,8 @@ class TextImg(Img):
     
     def get_line_imgs(self):
         line_imgs = []
-        for line in self.lines:
-            text = ' '.join(line)
+        for line in self.lines['used']:
+            text = ' '.join(line['line'])
             img = TextImg(text=text, font=self.font, pointsize=self.pts,
                           fill=self.fill, stroke=self.stroke, 
                           strokewidth=self.strokewidth, 
