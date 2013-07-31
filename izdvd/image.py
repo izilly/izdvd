@@ -508,6 +508,11 @@ class TextImg(Img):
     
     def wrap_text(self):
         self._fit_wrapping()
+        self._maximize_pts()
+        self._minimize_raggedness()
+        self._maximize_word_spacing()
+        self._ellipsize_lines()
+        #~ self.lines = self._split_lines(self.text)
     
     def _fit_wrapping(self, pts_adjust=.1, spacing_adjust=.5):
         pts = self.pts
@@ -516,20 +521,17 @@ class TextImg(Img):
         spacing_min = spacing - spacing * spacing_adjust
         
         lines_default = self._split_lines(self.text, pts, 0)
-        lines_default = self._ellipsize_lines(lines_default)
-        self._count_words(lines_default)
+        lines_default['len_excluded'] = self._count_words(lines_default)
 
         lines_min = self._split_lines(self.text, pts_min, spacing_min)
-        lines_min = self._ellipsize_lines(lines_min, pts_min, spacing_min)
-        self._count_words(lines_min)
+        lines_min['len_excluded'] = self._count_words(lines_min)
         
         if lines_min['len_excluded'] == lines_default['len_excluded']:
             self.lines = lines_default
             return
         
         lines_med = self._split_lines(self.text, pts, spacing_min)
-        lines_med = self._ellipsize_lines(lines_med, pts, spacing_min)
-        self._count_words(lines_med)
+        lines_med['len_excluded'] = self._count_words(lines_med)
         
         self.interword_spacing = spacing_min
         
@@ -541,34 +543,35 @@ class TextImg(Img):
             self.lines = lines_min
             return
     
-    def _split_lines(self, text, pts, interword_spacing):
+    def _split_lines(self, text, pts=None, interword_spacing=None):
         words = text.split(' ')
-        # each line is a tuple: 
-            # 0: list of words
-            # 1: ellipsis info (True=needs to be ellipsized; int=chars to remove)
-        #~ lines = [([], 0)]
-        lines = [{'line':[], 'trim':0}]
+        lines = [{'line':[], 'trim':False}]
         while words:
             w = words.pop(0)
-            width, h = self.get_size(text=' '.join(lines[-1]['line'] + [w]), 
-                                           pts=pts,
-                                           interword_spacing=interword_spacing)
+            width, h = self.get_size(' '.join(lines[-1]['line'] + [w]), pts,
+                                     interword_spacing)
             if width <= self.max_width:
                 lines[-1]['line'].append(w)
+            elif not lines[-1]['line']:
+                lines[-1]['line'].append(w)
+                lines[-1]['trim'] = self._get_trimmed_len(lines[-1]['line'], pts, 
+                                                         interword_spacing)
             else:
                 if len(lines) == self.max_lines:
                     words = [w] + words
                     break
-                # append a new line only if current line isn't empty
-                if lines[-1]['line']:
-                    #~ lines.append(([w], 0))
-                    lines.append({'line':[w], 'trim':0})
-                # else add word to the current line even if it's too long
                 else:
-                    lines[-1]['line'].append(w)
-                    lines[-1]['trim'] = True
-        lines = {'used': lines, 'unused': words}
-        return lines
+                    lines.append({'line':[w], 'trim':False})
+        if words:
+            for i in range(len(words)+1):
+                trim = self._get_trimmed_len(lines[-1]['line']+words[:i], pts,
+                                             interword_spacing)
+                if trim:
+                    lines[-1]['trim'] = trim
+                    lines[-1]['line'].extend(words[:i])
+                    words = words[i:]
+                    break
+        return {'used': lines, 'unused': words}
     
     def _get_trimmed_len(self, line, pts=None, interword_spacing=None):
         text = ' '.join(line)
@@ -579,30 +582,127 @@ class TextImg(Img):
                 return i - 1
         return False
     
-    def _ellipsize_lines(self, lines, pts=None, interword_spacing=None):
-        for n,i in enumerate(lines['used']):
-            if i['trim'] is True:
-                i['trim'] = self._get_trim_chars(i['line'], pts, 
-                                                 interword_spacing)
-        
-        last_used = lines['used'][-1]
-        unused = lines['unused']
-        if unused:
-            for i in range(len(unused)+1):
-                trim = self._get_trimmed_len(last_used['line']+unused[:i], pts,
-                                             interword_spacing)
-                if trim:
-                    last_used['trim'] = trim
-                    last_used['line'] += unused[:i]
-                    lines['unused'] = unused[i:]
-                    return lines
-        return False
-        
+    def _ellipsize_lines(self, pts=None, interword_spacing=None):
+        for i in self.lines['used']:
+            i['trim'] = self._get_trimmed_len(i['line'], pts, interword_spacing)
+
     def _count_words(self, lines):
         trimmed = len([i for i in lines['used'] if i['trim']])
         unused = len(lines['unused']) + trimmed
-        lines['len_excluded'] = unused
+        return unused
     
+    def _get_unused_w_sq(self, lines, pts=None, interword_spacing=None):
+        unused_w_sq = 0
+        for i in lines:
+            w,h = self.get_size(' '.join(i), pts, interword_spacing)
+            u = (self.max_width - w) ** 2
+            unused_w_sq += u
+        return unused_w_sq
+    
+    def _minimize_raggedness(self, pts=None, interword_spacing=None):
+        max_w = self.max_width
+        lines = self.lines['used']
+        for i in reversed(range(1, len(lines))):
+            if lines[i]['trim']:
+                continue
+            line = lines[i]['line']
+            prev = lines[i-1]['line']
+            for word in reversed(prev):
+                new_line = prev[-1:] + line
+                new_prev = prev[:-1]
+                w,h = self.get_size(' '.join(new_line), pts, interword_spacing)
+                if w <= max_w:
+                    cur_space_sq = self._get_unused_w_sq([line, prev], pts,
+                                                         interword_spacing)
+                    new_space_sq = self._get_unused_w_sq([new_line, new_prev],
+                                                         pts, interword_spacing)
+                    if new_space_sq < cur_space_sq:
+                        line[:0] = [prev.pop()]
+                    else:
+                        break
+                else:
+                    break
+        self.lines['used'] = lines
+
+    def _maximize_pts(self):
+        pts = math.floor(self.pts) - 1
+        while True:
+            pts += 1
+            if pts > self.pts_orig:
+                self.pts = self.pts_orig
+                return
+            lines = self._split_lines(self.text, pts)
+            excluded = self._count_words(lines)
+            if excluded > self.lines['len_excluded']:
+                break
+        self.pts = pts - 1
+
+    def _maximize_word_spacing(self):
+        dws = self.get_default_word_spacing()
+        iws = self.interword_spacing
+        i = dws * .05
+        while True:
+            iws += i
+            if iws >= dws:
+                self.interword_spacing = 0
+                return
+            lines = self._split_lines(self.text, interword_spacing=iws)
+            excluded = self._count_words(lines)
+            if excluded > self.lines['len_excluded']:
+                break
+        self.interword_spacing = iws - i
+
+
+
+
+
+
+
+                #w,h = self.get_size(text=' '.join([word] + line))
+                #if w <= max_w:
+                    #cur_space_sq = self._get_unused_w_sq([line, prev])
+                    #new_line = [prev[-1]] + line
+                    #np = prev[:-1]
+                    
+                    
+                    #line_sq = (max_w - self.get_size(text=' '.join(line))[0]) ** 2
+                    #prev_sq = (max_w - self.get_size(text=' '.join(prev))[0]) ** 2
+                    #sq = line_sq + prev_sq
+                    #nl = [prev[-1]] + line
+                    #np = prev[:-1]
+                    #nl_sq = (max_w - self.get_size(text=' '.join(nl))[0]) ** 2
+                    #np_sq = (max_w - self.get_size(text=' '.join(np))[0]) ** 2
+                    #nsq = nl_sq + np_sq
+                    #if nsq < sq:
+                        #line[:0] = [prev.pop()]
+                    #else:
+                        #break
+                #else:
+                    #break
+        #lines.reverse()
+        #self.lines = lines
+    
+    
+    
+    
+    #def _ellipsize_lines(self, lines, pts=None, interword_spacing=None):
+        #for n,i in enumerate(lines['used']):
+            #if i['trim'] is True:
+                #i['trim'] = self._get_trim_chars(i['line'], pts, 
+                                                 #interword_spacing)
+        #last_used = lines['used'][-1]
+        #unused = lines['unused']
+        #if unused:
+            #for i in range(len(unused)+1):
+                #trim = self._get_trimmed_len(last_used['line']+unused[:i], pts,
+                                             #interword_spacing)
+                #if trim:
+                    #last_used['trim'] = trim
+                    #last_used['line'] += unused[:i]
+                    #lines['unused'] = unused[i:]
+                    #return lines
+        #return False
+            
     def old_wrap_text(self):
         self._fit_wrapping()
         self._minimize_raggedness()
