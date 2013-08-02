@@ -336,23 +336,17 @@ class TextImg(Img):
                                         'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.lower())
         self.lines = []
         self.line_imgs = []
-        #
         super(TextImg, self).__init__()
         if self.pts is None and self.line_height is not None:
             self.pts = self.get_pts_from_lh()
             self.pts_orig = self.pts
         self.get_draw_cmd = self.get_annotate_cmd
-        #~ self.write()
         if self.max_width:
-            #~ self.new_get_size()
             self.wrap_text()
+            self.append_lines()
         else:
             lines = [{'line': self.text.split(' '), 'trim':False}]
             self.lines = {'used': lines, 'unused': []}
-        #~ super(TextImg, self).__init__()
-        if self.max_width:
-            self.append_lines()
-        else:
             self.write()
     
     def get_common_opts(self, interword_spacing=None, undercolor=None):
@@ -436,42 +430,13 @@ class TextImg(Img):
         cmd = ['convert'] + canvas_opts + common_opts + draw_opts + format_opts
         return cmd
     
-    def old_get_size(self, text=None, pts=None, interword_spacing=None):
-        cmd_h = self.get_annotate_opts(text=self.ref_text, pts=pts, 
-                                      interword_spacing=interword_spacing,
-                                      use_undercolor=True,
-                                      clear_inner_stroke=False)
-        cmd_h += ['-trim', 'info:']
-        cmd_w = self.get_annotate_opts(text=text, pts=pts, 
-                                      interword_spacing=interword_spacing,
-                                      use_undercolor=True,
-                                      clear_inner_stroke=False)
-        cmd_w += ['-trim', 'info:']
-        out_h = subprocess.check_output(cmd_h, universal_newlines=True)
-        out_w = subprocess.check_output(cmd_w, universal_newlines=True)
-        z,h,z,z = out_h.split(';')
-        w,z,z,z = out_w.split(';')
-        return (float(w), float(h))
-
     def get_size(self, text=None, pts=None, interword_spacing=None):
-        #~ if text is None:
-            #~ text = self.text
-        #~ if pts is None:
-            #~ pts = self.pts
-        #~ canvas_h = len(text.splitlines()) * pts * 10 + self.strokewidth * 10
-        #~ if len(self.ref_text) > len(text):
-            #~ canvas_text = self.ref_text
-        #~ else:
-            #~ canvas_text = text
-        #~ canvas_w = len(canvas_text) * pts * 10 + self.strokewidth * 10
         cmd_h = self.get_annotate_opts(text=self.ref_text, pts=pts, size=None,
-                                      #~ size=(canvas_w, canvas_h),
                                       interword_spacing=interword_spacing,
                                       use_undercolor=True,
                                       clear_inner_stroke=False)
         cmd_h += ['-trim', 'info:']
         cmd_w = self.get_annotate_opts(text=text, pts=pts, size=None,
-                                      #~ size=(canvas_w, canvas_h),
                                       interword_spacing=interword_spacing,
                                       use_undercolor=True,
                                       clear_inner_stroke=False)
@@ -566,7 +531,6 @@ class TextImg(Img):
         self._minimize_raggedness()
         self._maximize_word_spacing()
         self._ellipsize_lines()
-        #~ self.lines = self._split_lines(self.text)
     
     def _fit_wrapping(self, pts_adjust=.1, spacing_adjust=.5):
         pts = self.pts
@@ -628,15 +592,6 @@ class TextImg(Img):
         for i in range(self.max_lines - len(lines)):
             lines.append({'line':[], 'trim':False})
         return {'used': lines, 'unused': words}
-    
-    #~ def _get_trimmed_len(self, line, pts=None, interword_spacing=None):
-        #~ text = ' '.join(line)
-        #~ for i in range(len(text)+1):
-            #~ width,h,x,y = self.get_size(text[:i]+'...', pts=pts, 
-                                    #~ interword_spacing=interword_spacing)
-            #~ if width > self.max_width:
-                #~ return i - 1
-        #~ return False
     
     def _get_trimmed_len(self, line, force=False, pts=None, 
                          interword_spacing=None):
@@ -702,29 +657,12 @@ class TextImg(Img):
                 else:
                     break
         self.lines['used'] = lines
-
-    #~ def _maximize_pts(self):
-        #~ pts = math.floor(self.pts) - 1
-        #~ while True:
-            #~ pts += 1
-            #~ if pts > self.pts_orig:
-                #~ self.pts = self.pts_orig
-                #~ return
-            #~ lines = self._split_lines(self.text, pts)
-            #~ excluded = self._count_words(lines)
-            #~ if excluded > self.lines['len_excluded']:
-                #~ break
-        #~ self.pts = pts - 1
-#~ 
+    
     def _maximize_pts(self):
         if self.pts == self.pts_orig:
             return
         pts = self.pts_orig
         while True:
-            #~ pts += 1
-            #~ if pts > self.pts_orig:
-                #~ self.pts = self.pts_orig
-                #~ return
             lines = self._split_lines(self.text, pts)
             excluded = self._count_words(lines)
             if excluded <= self.lines['len_excluded']:
@@ -767,8 +705,6 @@ class CanvasImg(Img):
                                      out_file], universal_newlines=True)
         self.update_versions(out_file)
         return out_file
-        
-        
 
 
 class _PangoTextImg(Img):
