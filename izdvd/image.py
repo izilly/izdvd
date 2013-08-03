@@ -581,23 +581,27 @@ class TextImg(Img):
                 lines[-1]['line'].append(w)
             elif not lines[-1]['line']:
                 lines[-1]['line'].append(w)
-                lines[-1]['trim'] = self._get_trimmed_len(lines[-1]['line'], pts, 
-                                                         interword_spacing)
+                #~ lines[-1]['trim'] = self._get_trimmed_len(lines[-1]['line'], 
+                                                          #~ pts, 
+                                                          #~ interword_spacing)
+                lines[-1]['trim'] = True
             else:
                 if len(lines) == self.max_lines:
-                    words = [w] + words
+                    lines[-1]['line'].append(w)
+                    lines[-1]['trim'] = True
+                    #~ words = [w] + words
                     break
                 else:
                     lines.append({'line':[w], 'trim':False})
-        if words:
-            for i in range(len(words)+1):
-                trim = self._get_trimmed_len(lines[-1]['line']+words[:i], True, 
-                                             pts, interword_spacing)
-                if trim:
-                    lines[-1]['trim'] = trim
-                    lines[-1]['line'].extend(words[:i])
-                    words = words[i:]
-                    break
+        #~ if words:
+            #~ for i in range(len(words)+1):
+                #~ trim = self._get_trimmed_len(lines[-1]['line']+words[:i], True, 
+                                             #~ pts, interword_spacing)
+                #~ if trim:
+                    #~ lines[-1]['trim'] = trim
+                    #~ lines[-1]['line'].extend(words[:i])
+                    #~ words = words[i:]
+                    #~ break
         return {'used': lines, 'unused': words}
     
     def _get_trimmed_len(self, line, force=False, pts=None, 
