@@ -11,15 +11,18 @@ import subprocess
 import math
 from collections import Counter
 import argparse
+from datetime import datetime
+import os
 
 
 class BG (object):
-    def __init__(self, bg_img, button_imgs, 
+    def __init__(self, bg_img, button_imgs, out_file=None,
                  button_labels=None, label_line_height=0, label_lines=2, 
                  label_padding=5, outer_padding=30, inner_padding=30, 
                  display_ar=None):
         self.bg_img = Img(bg_img)
         self.button_imgs = [Img(i) for i in button_imgs]
+        self.out_file = out_file
         self.button_labels = button_labels
         self.label_line_height = label_line_height
         self.label_lines = label_lines
@@ -310,5 +313,21 @@ class BG (object):
         self.highlight_img = hl
         self.select_img = sl
     
+    def write_bg(self, out_file=None):
+        if out_file is None:
+            if self.out_file:
+                out_file = self.out_file
+            else:
+                out_dir = os.getcwd()
+                out_time = datetime.now().strftime('%Y.%m.%d-%H%M%S')
+                out_name = 'DVD_menu_{}'.format(out_time)
+                out_file = os.path.join(out_dir, out_name)
+        self.path_bg = '{}_bg.png'.format(out_file)
+        self.path_hl = '{}_hl.png'.format(out_file)
+        self.path_sl = '{}_sl.png'.format(out_file)
+        
+        self.bg_img.write(out_file=self.path_bg)
+        self.highlight_img.write(out_file=self.path_hl)
+        self.select_img.write(out_file=self.path_sl)
 
 
