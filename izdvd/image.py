@@ -11,8 +11,6 @@ import os.path
 import shutil
 import tempfile
 import math
-from collections import deque
-import re
 
 
 class Error(Exception):
@@ -344,7 +342,6 @@ class TextImg(Img):
         self.get_draw_cmd = self.get_annotate_cmd
         if self.max_width:
             self.wrap_text()
-            #~ self.append_lines()
         else:
             lines = [{'line': self.text.split(' '), 'trim':False}]
             self.lines = {'used': lines, 'unused': []}
@@ -386,7 +383,6 @@ class TextImg(Img):
         if size is None:
             w,h,x,y = self.get_size(text=text, pts=pts, 
                                  interword_spacing=interword_spacing)
-            #~ size = (w,h)
             crop = '{}x{}{:+}{:+}'.format(w,h,x,y)
         else:
             crop=None
@@ -546,7 +542,6 @@ class TextImg(Img):
         spacing_min = spacing - spacing * spacing_adjust
         
         lines_default = self._split_lines(self.text, pts, 0)
-        #~ lines_default['len_excluded'] = self._count_words(lines_default)
         lines_default['pre_nl'] = self._count_words(lines_default)
         # TODO: test below (skip trying different pts/iws when only one line)
         if len(lines_default['used']) == 1:
@@ -554,21 +549,17 @@ class TextImg(Img):
             return
         
         lines_min = self._split_lines(self.text, pts_min, spacing_min)
-        #~ lines_min['len_excluded'] = self._count_words(lines_min)
         lines_min['pre_nl'] = self._count_words(lines_min)
         
-        #~ if lines_min['len_excluded'] == lines_default['len_excluded']:
         if lines_min['pre_nl'] == lines_default['pre_nl']:
             self.lines = lines_default
             return
         
         lines_med = self._split_lines(self.text, pts, spacing_min)
-        #~ lines_med['len_excluded'] = self._count_words(lines_med)
         lines_med['pre_nl'] = self._count_words(lines_med)
         
         self.interword_spacing = spacing_min
         
-        #~ if lines_med['len_excluded'] == lines_min['len_excluded']:
         if lines_med['pre_nl'] == lines_min['pre_nl']:
             self.lines = lines_med
             return
@@ -588,9 +579,6 @@ class TextImg(Img):
                 lines[-1]['line'].append(w)
             elif not lines[-1]['line']:
                 lines[-1]['line'].append(w)
-                #~ lines[-1]['trim'] = self._get_trimmed_len(lines[-1]['line'], 
-                                                          #~ pts, 
-                                                          #~ interword_spacing)
                 lines[-1]['trim'] = True
             else:
                 if len(lines) == self.max_lines:
@@ -600,15 +588,6 @@ class TextImg(Img):
                     break
                 else:
                     lines.append({'line':[w], 'trim':False})
-        #~ if words:
-            #~ for i in range(len(words)+1):
-                #~ trim = self._get_trimmed_len(lines[-1]['line']+words[:i], True, 
-                                             #~ pts, interword_spacing)
-                #~ if trim:
-                    #~ lines[-1]['trim'] = trim
-                    #~ lines[-1]['line'].extend(words[:i])
-                    #~ words = words[i:]
-                    #~ break
         return {'used': lines, 'unused': words}
     
     def _get_trimmed_len(self, line, force=False, pts=None, 
@@ -640,10 +619,6 @@ class TextImg(Img):
     def _count_words(self, lines):
         pre_nl = len([word for i in lines['used'][:-1] for word in i['line']])
         return pre_nl
-        #~ # TODO: account for when line is trimmed but still fits 
-        #~ trimmed = len([i for i in lines['used'] if i['trim']])
-        #~ unused = len(lines['unused']) + trimmed
-        #~ return unused
     
     def _get_unused_w_sq(self, lines, pts=None, interword_spacing=None):
         unused_w_sq = 0
@@ -694,11 +669,7 @@ class TextImg(Img):
                 break
             pts -= 1
         self.pts = pts
-            #~ excluded = self._count_words(lines)
-            #~ if excluded <= self.lines['len_excluded']:
-                #~ break
-            #~ if pre_nl <= self.lines['len_excluded']:
-
+    
     def _maximize_word_spacing(self):
         cws = self.interword_spacing
         if cws == 0:
@@ -718,13 +689,6 @@ class TextImg(Img):
                     self.interword_spacing = ws
                 break
             ws -= i
-            #~ excluded = self._count_words(lines)
-            #~ if excluded <= self.lines['len_excluded']:
-                #~ if ws == dws:
-                    #~ self.interword_spacing = 0
-                #~ else:
-                    #~ self.interword_spacing = ws
-                #~ break
 
 
 class CanvasImg(Img):
@@ -743,24 +707,5 @@ class CanvasImg(Img):
                                      out_file], universal_newlines=True)
         self.update_versions(out_file)
         return out_file
-
-
-class _PangoTextImg(Img):
-    def __init__(self, text, line_height, font='Sans'):
-        self.text = text
-        self.line_height = line_height
-        self.font = font
-    
-    def get_pt_size(text, font, lh):
-        pts = 0
-        while True:
-            pts += 1
-            pango = 'pango:<span font="{} {}">{}</span>'.format(font, pts, 
-                                                                text)
-            height = subprocess.check_output(['convert', pango, '-format', '%h',
-                                              'info:-'], universal_newlines=True)
-            if int(height) > lh:
-                pt_size = pts - 1
-                return pt_size
 
 
