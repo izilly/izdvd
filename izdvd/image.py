@@ -539,21 +539,30 @@ class TextImg(Img):
         spacing_min = spacing - spacing * spacing_adjust
         
         lines_default = self._split_lines(self.text, pts, 0)
-        lines_default['len_excluded'] = self._count_words(lines_default)
-
-        lines_min = self._split_lines(self.text, pts_min, spacing_min)
-        lines_min['len_excluded'] = self._count_words(lines_min)
+        #~ lines_default['len_excluded'] = self._count_words(lines_default)
+        lines_default['pre_nl'] = self._count_words(lines_default)
+        # TODO: test below (skip trying different pts/iws when only one line)
+        if len(lines_default['used']) == 1:
+            self.lines = lines_default
+            return
         
-        if lines_min['len_excluded'] == lines_default['len_excluded']:
+        lines_min = self._split_lines(self.text, pts_min, spacing_min)
+        #~ lines_min['len_excluded'] = self._count_words(lines_min)
+        lines_min['pre_nl'] = self._count_words(lines_min)
+        
+        #~ if lines_min['len_excluded'] == lines_default['len_excluded']:
+        if lines_min['pre_nl'] == lines_default['pre_nl']:
             self.lines = lines_default
             return
         
         lines_med = self._split_lines(self.text, pts, spacing_min)
-        lines_med['len_excluded'] = self._count_words(lines_med)
+        #~ lines_med['len_excluded'] = self._count_words(lines_med)
+        lines_med['pre_nl'] = self._count_words(lines_med)
         
         self.interword_spacing = spacing_min
         
-        if lines_med['len_excluded'] == lines_min['len_excluded']:
+        #~ if lines_med['len_excluded'] == lines_min['len_excluded']:
+        if lines_med['pre_nl'] == lines_min['pre_nl']:
             self.lines = lines_med
             return
         else:
@@ -589,8 +598,6 @@ class TextImg(Img):
                     lines[-1]['line'].extend(words[:i])
                     words = words[i:]
                     break
-        for i in range(self.max_lines - len(lines)):
-            lines.append({'line':[], 'trim':False})
         return {'used': lines, 'unused': words}
     
     def _get_trimmed_len(self, line, force=False, pts=None, 
@@ -620,10 +627,12 @@ class TextImg(Img):
                                               pts, interword_spacing)
 
     def _count_words(self, lines):
-        # TODO: account for when line is trimmed but still fits 
-        trimmed = len([i for i in lines['used'] if i['trim']])
-        unused = len(lines['unused']) + trimmed
-        return unused
+        pre_nl = len([word for i in lines['used'][:-1] for word in i['line']])
+        return pre_nl
+        #~ # TODO: account for when line is trimmed but still fits 
+        #~ trimmed = len([i for i in lines['used'] if i['trim']])
+        #~ unused = len(lines['unused']) + trimmed
+        #~ return unused
     
     def _get_unused_w_sq(self, lines, pts=None, interword_spacing=None):
         unused_w_sq = 0
@@ -634,8 +643,13 @@ class TextImg(Img):
         return unused_w_sq
     
     def _minimize_raggedness(self, pts=None, interword_spacing=None):
+        # TODO: ensure appending of blank lines works
+            #   ensure this finishes quickly in cases where not needed
+            #   (e.g., label with only one word, etc.)
         max_w = self.max_width
         lines = self.lines['used']
+        for i in range(self.max_lines - len(lines)):
+            lines.append({'line':[], 'trim':False})
         for i in reversed(range(1, len(lines))):
             if lines[i]['trim']:
                 continue
@@ -664,29 +678,42 @@ class TextImg(Img):
         pts = self.pts_orig
         while True:
             lines = self._split_lines(self.text, pts)
-            excluded = self._count_words(lines)
-            if excluded <= self.lines['len_excluded']:
+            pre_nl = self._count_words(lines)
+            if pre_nl >= self.lines['pre_nl']:
                 break
             pts -= 1
         self.pts = pts
+            #~ excluded = self._count_words(lines)
+            #~ if excluded <= self.lines['len_excluded']:
+                #~ break
+            #~ if pre_nl <= self.lines['len_excluded']:
 
     def _maximize_word_spacing(self):
-        dws = self.get_default_word_spacing()
         cws = self.interword_spacing
+        if cws == 0:
+            return
+        dws = self.get_default_word_spacing()
         ws = dws
         i = ws * .05
         while True:
             if ws <= cws:
                 return
             lines = self._split_lines(self.text, interword_spacing=ws)
-            excluded = self._count_words(lines)
-            if excluded <= self.lines['len_excluded']:
+            pre_nl = self._count_words(lines)
+            if pre_nl >= self.lines['pre_nl']:
                 if ws == dws:
                     self.interword_spacing = 0
                 else:
                     self.interword_spacing = ws
                 break
             ws -= i
+            #~ excluded = self._count_words(lines)
+            #~ if excluded <= self.lines['len_excluded']:
+                #~ if ws == dws:
+                    #~ self.interword_spacing = 0
+                #~ else:
+                    #~ self.interword_spacing = ws
+                #~ break
 
 
 class CanvasImg(Img):
