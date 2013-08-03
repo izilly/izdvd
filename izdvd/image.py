@@ -320,6 +320,7 @@ class TextImg(Img):
         self.text = text
         self.font = font
         self.pts = pointsize
+        self.pts_orig = pointsize
         self.fill = fill
         self.stroke = stroke
         self.strokewidth = strokewidth
@@ -343,11 +344,11 @@ class TextImg(Img):
         self.get_draw_cmd = self.get_annotate_cmd
         if self.max_width:
             self.wrap_text()
-            self.append_lines()
+            #~ self.append_lines()
         else:
             lines = [{'line': self.text.split(' '), 'trim':False}]
             self.lines = {'used': lines, 'unused': []}
-            self.write()
+        self.write()
     
     def get_common_opts(self, interword_spacing=None, undercolor=None):
         opts = []
@@ -448,6 +449,10 @@ class TextImg(Img):
         return (int(w), int(h), int(x), int(y))
     
     def write(self, cmd=None, out_dir=None, out_basename=None):
+        if len(self.lines['used']) > 1:
+            self.append_lines()
+            return
+        
         if cmd is None:
             cmd = self.get_draw_cmd()
         if out_dir is None:
@@ -474,13 +479,15 @@ class TextImg(Img):
         line_imgs = []
         for line in self.lines['used']:
             text = ' '.join(line['line'])
+            if line['trim']:
+                text = text[:line['trim']] + '...'
             img = TextImg(text=text, font=self.font, pointsize=self.pts,
                           fill=self.fill, stroke=self.stroke, 
                           strokewidth=self.strokewidth, 
                           word_spacing=self.interword_spacing,
                           clear_inner_stroke=self.clear_inner_stroke,
                           line_height=self.line_height, 
-                          max_width=None, max_lines=None, 
+                          max_width=None, max_lines=1, 
                           size=self.size, background=self.background, 
                           gravity=self.gravity)
             line_imgs.append(img)
