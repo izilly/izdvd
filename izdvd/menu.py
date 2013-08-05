@@ -362,7 +362,13 @@ class BG (object):
         self.highlight_img = hl
         self.select_img = sl
     
-    def write_bg(self, out_file=None):
+    def write_bg(self, out_file_bg=None, out_file_hl=None, out_file_sl=None):
+        if out_file_bg is None:
+            out_file_bg = self.path_bg_img
+        if out_file_hl is None:
+            out_file_hl = self.path_hl_img
+        if out_file_sl is None:
+            out_file_sl = self.path_sl_img
         #if out_file is None:
             ##~ if self.out_file:
                 ##~ out_file = self.out_file
@@ -374,9 +380,9 @@ class BG (object):
         #self.path_bg_img = '{}_bg.png'.format(out_file)
         #self.path_hl_img = '{}_hl.png'.format(out_file)
         #self.path_sl_img = '{}_sl.png'.format(out_file)
-        self.bg_img.write(out_file=self.path_bg_img)
-        self.highlight_img.write(out_file=self.path_hl_img)
-        self.select_img.write(out_file=self.path_sl_img)
+        self.bg_img.write(out_file=out_file_bg)
+        self.highlight_img.write(out_file=out_file_hl)
+        self.select_img.write(out_file=out_file_sl)
     
 
 class DVDMenu (BG):
@@ -391,26 +397,69 @@ class DVDMenu (BG):
             height = 480
         elif self.dvd_format == 'PAL':
             height = 576
-        super(DVDMenu, self).__init__(bg_img, button_imgs, 
-                                      button_labels=button_labels,
-                                      out_dir=out_dir, out_name=out_name,
-                                      label_line_height=label_line_height, 
-                                      label_lines=label_lines, 
-                                      label_padding=label_padding, 
-                                      outer_padding=outer_padding, 
-                                      inner_padding=inner_padding, 
-                                      width=width, height=height, 
-                                      display_ar=dvd_menu_ar)
+        self.out_dir = out_dir
+        self.out_name = out_name
         self.dvd_format = dvd_format
         self.dvd_menu_ar = dvd_menu_ar
         self.dvd_menu_audio = dvd_menu_audio
+        self.bg = BG(bg_img, button_imgs, 
+                     button_labels=button_labels,
+                     out_dir=out_dir, out_name=out_name,
+                     label_line_height=label_line_height, 
+                     label_lines=label_lines, 
+                     label_padding=label_padding, 
+                     outer_padding=outer_padding, 
+                     inner_padding=inner_padding, 
+                     width=width, height=height, 
+                     display_ar=dvd_menu_ar)
+        self.setup_out_dir()
+        #~ super(DVDMenu, self).__init__(bg_img, button_imgs, 
+                                      #~ button_labels=button_labels,
+                                      #~ out_dir=out_dir, out_name=out_name,
+                                      #~ label_line_height=label_line_height, 
+                                      #~ label_lines=label_lines, 
+                                      #~ label_padding=label_padding, 
+                                      #~ outer_padding=outer_padding, 
+                                      #~ inner_padding=inner_padding, 
+                                      #~ width=width, height=height, 
+                                      #~ display_ar=dvd_menu_ar)
         # make the menu
-        self.write_bg()
+        self.bg.write_bg(out_file_bg=self.path_bg_img, 
+                      out_file_hl=self.path_hl_img,
+                      out_file_sl=self.path_sl_img)
+        #~ self.bg.write_bg()
         self.convert_to_m2v()
         self.convert_audio()
         self.multiplex_audio()
         self.multiplex_buttons()
     
+    def setup_out_dir(self):
+        # output directory
+        if self.out_dir is None:
+            out_dir = os.getcwd()
+        else:
+            if not os.path.exists(out_dir):
+                os.makedirs(out_dir)
+        # output name
+        if self.out_name is None:
+            out_time = datetime.now().strftime('%Y.%m.%d-%H%M%S')
+            out_name = 'DVD_menu_{}'.format(out_time)
+        # file paths
+        self.out_path = os.path.join(out_dir, out_name)
+        self.out_dir = out_dir
+        self.out_name = out_name
+        self.path_bg_img = '{}_bg.png'.format(self.out_path)
+        self.path_hl_img = '{}_hl.png'.format(self.out_path)
+        self.path_sl_img = '{}_sl.png'.format(self.out_path)
+        
+        self.path_bg_m2v = '{}_bg.m2v'.format(self.out_path)     # menu-bg.m2v
+        self.path_bg_ac3 = '{}_bg.ac3'.format(self.out_path)     # menu_audio.ac3
+        self.path_bg_mpg = '{}_bg.mpg'.format(self.out_path)     # menu-bg.mpg
+        self.path_menu_mpg = '{}_menu.mpg'.format(self.out_path) # menu.mpg
+        self.path_menu_xml = '{}_menu.xml'.format(self.out_path) # menu.xml
+        self.path_dvd_xml = '{}_dvd.xml'.format(self.out_path)   # dvd.xml
+        #~ self.path_dvd_dir    VIDEO_TS
+
     def convert_to_m2v(self, frames=60):
         frames = str(frames)
         if self.dvd_format == 'PAL':
@@ -460,7 +509,7 @@ class DVDMenu (BG):
         spu.set('start', '00:00:00.0')
         spu.set('highlight', self.path_hl_img)
         spu.set('select', self.path_sl_img)
-        for n,i in enumerate(self.cell_locations):
+        for n,i in enumerate(self.bg.cell_locations):
             b = etree.SubElement(spu, 'button')
             b.set('name', 'b{}'.format(n))
             b.set('x0', str(i['x0']))
@@ -476,7 +525,17 @@ class DVDMenu (BG):
                                   stdin=p1.stdout, stdout=f)
             p1.stdout.close()
             out, err = p2.communicate()
-    
+
+
+class DVD (BG):
+    def __init__(self, bg_img, button_imgs, 
+                 button_labels=None, 
+                 out_dir=None, out_name=None,
+                 label_line_height=0, label_lines=2, 
+                 label_padding=5, outer_padding=30, inner_padding=30, 
+                 dvd_format='NTSC', dvd_menu_ar=4/3, dvd_menu_audio=None):
+        pass
+
     #~ def create_dvd_xml(self):
         #~ if self.dvd_format == 'PAL':
             #~ fmt = 'pal'
