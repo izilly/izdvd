@@ -385,7 +385,7 @@ class BG (object):
         self.select_img.write(out_file=out_file_sl)
     
 
-class DVDMenu (BG):
+class DVDMenu (object):
     def __init__(self, bg_img, button_imgs, 
                  button_labels=None, 
                  out_dir=None, out_name=None,
