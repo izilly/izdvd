@@ -7,6 +7,7 @@
 #
 
 from izdvd.image import Img, CanvasImg, TextImg
+from izdvd.encoder import Encoder
 import subprocess
 import math
 from collections import Counter
@@ -14,24 +15,16 @@ import argparse
 from datetime import datetime
 import os
 from lxml import etree
+import glob
+import re
 
-#~ self.path_bg_img = '{}_bg.png'.format(self.out_path)
-#~ self.path_hl_img = '{}_hl.png'.format(self.out_path)
-#~ self.path_sl_img = '{}_sl.png'.format(self.out_path)
-#~ 
-#~ self.path_bg_m2v = '{}_bg.m2v'.format(self.out_path)     # menu-bg.m2v
-#~ self.path_bg_ac3 = '{}_bg.ac3'.format(self.out_path)     # menu_audio.ac3
-#~ self.path_bg_mpg = '{}_bg.mpg'.format(self.out_path)     # menu-bg.mpg
-#~ self.path_menu_mpg = '{}_menu.mpg'.format(self.out_path) # menu.mpg
-#~ self.path_menu_xml = '{}_menu.xml'.format(self.out_path) # menu.xml
-#~ self.path_dvd_xml = '{}_dvd.xml'.format(self.out_path)   # dvd.xml
 
 class BG (object):
     def __init__(self, bg_img, button_imgs, 
                  button_labels=None, 
                  out_dir=None, out_name=None,
                  border_px=5, border_color='white', 
-                 highlight_color='#57fb57', select_color='red',
+                 highlight_color='green', select_color='red',
                  label_line_height=0, label_lines=2, 
                  label_padding=5, outer_padding=30, inner_padding=30, 
                  width=None, height=None, display_ar=None):
@@ -189,31 +182,7 @@ class BG (object):
         self.rows = best['rows']
         self.cell_w = best['cell_w']
         self.cell_h = best['cell_h']
-        
-        
-        
         return best_methods[0]
-        
-        print('Best:')
-        for i in best_methods:
-            print('  {}: {}x{}  {:.0f}x{:.0f}  ({} empty)'.format(i['name'], i['cols'], 
-                                                   i['rows'], i['bw'], i['bh'],
-                                                    i['empty'] ))
-        print('')
-        if tied_methods:
-            print('Tied:')
-            for i in tied_methods:
-                print('  {}: {}x{}  {:.0f}x{:.0f}  ({} empty)'.format(i['name'], i['cols'], 
-                                                       i['rows'], i['bw'], i['bh'],
-                                                        i['empty'] ))
-            print('')
-        if other_methods:
-            print('Other:')
-            for i in other_methods:
-                print('  {}: {}x{}  {:.0f}x{:.0f}  ({} empty)'.format(i['name'], i['cols'], 
-                                                       i['rows'], i['bw'], i['bh'],
-                                                        i['empty'] ))
-            print('')
     
     def get_cell_size(self, cols, rows, cell_ar, bg_w, bg_h):
         '''Get the size of a single cell at a given grid size
@@ -375,21 +344,10 @@ class BG (object):
             out_file_hl = self.path_hl_img
         if out_file_sl is None:
             out_file_sl = self.path_sl_img
-        #if out_file is None:
-            ##~ if self.out_file:
-                ##~ out_file = self.out_file
-            ##~ else:
-            #out_dir = os.getcwd()
-            #out_time = datetime.now().strftime('%Y.%m.%d-%H%M%S')
-            #out_name = 'DVD_menu_{}'.format(out_time)
-            #out_file = os.path.join(out_dir, out_name)
-        #self.path_bg_img = '{}_bg.png'.format(out_file)
-        #self.path_hl_img = '{}_hl.png'.format(out_file)
-        #self.path_sl_img = '{}_sl.png'.format(out_file)
         self.bg_img.write(out_file=out_file_bg)
         self.highlight_img.write(out_file=out_file_hl)
         self.select_img.write(out_file=out_file_sl)
-    
+
 
 class DVDMenu (object):
     def __init__(self, bg_img, button_imgs, 
@@ -419,21 +377,9 @@ class DVDMenu (object):
                      width=width, height=height, 
                      display_ar=dvd_menu_ar)
         self.setup_out_dir()
-        #~ super(DVDMenu, self).__init__(bg_img, button_imgs, 
-                                      #~ button_labels=button_labels,
-                                      #~ out_dir=out_dir, out_name=out_name,
-                                      #~ label_line_height=label_line_height, 
-                                      #~ label_lines=label_lines, 
-                                      #~ label_padding=label_padding, 
-                                      #~ outer_padding=outer_padding, 
-                                      #~ inner_padding=inner_padding, 
-                                      #~ width=width, height=height, 
-                                      #~ display_ar=dvd_menu_ar)
-        # make the menu
         self.bg.write_bg(out_file_bg=self.path_bg_img, 
                       out_file_hl=self.path_hl_img,
                       out_file_sl=self.path_sl_img)
-        #~ self.bg.write_bg()
         self.convert_to_m2v()
         self.convert_audio()
         self.multiplex_audio()
@@ -466,7 +412,7 @@ class DVDMenu (object):
         self.path_dvd_xml = '{}_dvd.xml'.format(self.out_path)   # dvd.xml
         #~ self.path_dvd_dir    VIDEO_TS
 
-    def convert_to_m2v(self, frames=60):
+    def convert_to_m2v(self, frames=3000):
         frames = str(frames)
         if self.dvd_format == 'PAL':
             framerate = '25:1'
@@ -494,14 +440,15 @@ class DVDMenu (object):
         output, err = p3.communicate()
     
     def convert_audio(self):
-        if self.dvd_menu_audio is None:
-            in_file = ['-ar', '48000', '-f', 's16le', '-i', '/dev/zero', 
-                       '-t', '4']
-        else:
-            in_file = ['-i', self.dvd_menu_audio]
-        cmd = ['ffmpeg'] + in_file + ['-ac', '2', '-ar', '48000', 
-               '-b:a', '224000', '-codec:a', 'ac3', '-y', self.path_bg_ac3]
-        o = subprocess.check_output(cmd, universal_newlines=True)
+        self.path_bg_ac3 = 'silent.m2a'
+        #~ if self.dvd_menu_audio is None:
+            #~ in_file = ['-ar', '48000', '-f', 's16le', '-i', '/dev/zero', 
+                       #~ '-t', '4']
+        #~ else:
+            #~ in_file = ['-i', self.dvd_menu_audio]
+        #~ cmd = ['ffmpeg'] + in_file + ['-ac', '2', '-ar', '48000', 
+               #~ '-b:a', '224000', '-codec:a', 'ac3', '-y', self.path_bg_ac3]
+        #~ o = subprocess.check_output(cmd, universal_newlines=True)
     
     def multiplex_audio(self):
         cmd = ['mplex', '-f', '8', '-o', self.path_bg_mpg, self.path_bg_m2v,
@@ -535,55 +482,224 @@ class DVDMenu (object):
             b.set('y1', str(y1))
         tree = etree.ElementTree(subpictures)
         tree.write(self.path_menu_xml, encoding='UTF-8', pretty_print=True)
+        e = dict(os.environ)
+        e['VIDEO_FORMAT'] = 'NTSC'
         with open(self.path_menu_mpg, 'w') as f:
             p1 = subprocess.Popen(['cat', self.path_bg_mpg], 
                                   stdout=subprocess.PIPE)
             p2 = subprocess.Popen(['spumux', self.path_menu_xml], 
-                                  stdin=p1.stdout, stdout=f)
+                                  stdin=p1.stdout, stdout=f, env=e)
             p1.stdout.close()
             out, err = p2.communicate()
 
 
 class DVD (object):
-    def __init__(self, vid_files, menu=None, 
-                 out_dir=None, out_name=None, dvd_dir=None,
-                 dvd_format='NTSC', dvd_ar=16/9):
-        self.vid_files = vid_files
+    def __init__(self, 
+                 in_vids=None, in_dirs=None, in_parent=None, one_dir=False,
+                 with_menu=True, with_menu_labels=True, label_from_img=False,
+                 label_from_dir=True, strip_label_year=True,
+                 menu_bg=None, menu_imgs=None, menu_labels=None,
+                 #~ menu=None, 
+                 out_name=None, 
+                 out_dvd_dir=None, out_menu_dir=None, tmp_dir=None,
+                 dvd_format='NTSC', dvd_ar=16/9,
+                 vbitrate=None, abitrate=192000, 
+                 no_encode_v=False, no_encode_a=False, 
+                 dvd_size=37602983936,
+                 separate_titles=False):
+        self.get_in_files(in_vids, in_dirs, in_parent, one_dir,
+                          menu_imgs, menu_labels, 
+                          with_menu, with_menu_labels, label_from_img,
+                          label_from_dir, strip_label_year)
+        #~ self.get_in_files(in_vids, in_dirs, in_parent, one_dir, label_from_img)
+        self.get_out_files(out_name, out_dvd_dir, out_menu_dir, tmp_dir)
+        
+        self.in_files = in_files
+        self.in_dirs = in_dirs
+        self.in_parent = in_parent
+        self.label_from_img = label_from_img
+        #~ if in_dir is not None:
+            #~ self.get_in_files()
+        self.mpeg_files = []
         self.menu = menu
-        self.out_dir = out_dir
+        self.tmp_dir = tmp_dir
         self.out_name = out_name
         self.dvd_dir = dvd_dir
         self.dvd_format = dvd_format
         self.dvd_ar = dvd_ar
+        self.vbitrate = vbitrate
+        self.abitrate = abitrate
+        self.no_encode_v = no_encode_v
+        self.no_encode_a = no_encode_a
+        self.dvd_size = dvd_size
+        self.separate_titles = separate_titles
         self.setup_out_dir()
+        self.calculate_vbitrate()
+        self.encode_video()
         self.create_dvd_xml()
         self.author_dvd()
+    
+    def get_in_files(self, in_vids, in_dirs, in_parent, one_dir,
+                     menu_imgs, menu_labels, 
+                     with_menu, with_menu_labels, label_from_img, 
+                     label_from_dir, strip_label_year):
+        import pudb; pu.db
+        vids = []
+        imgs = []
+        labels = []
+        vid_fmts = ['*.mp4', '*.avi', '*.mkv']
+        img_fmts = ['*.png', '*.jpg', '*.bmp', '*.gif']
+        if in_vids:
+            vids = in_vids
+        else:
+            if in_dirs:
+                dirs = in_dirs
+            elif in_parent:
+                if one_dir:
+                    dirs = [in_parent]
+                else:
+                    dirs = sorted([os.path.join(in_parent, i) 
+                                   for i in os.listdir(in_parent)
+                                   if os.path.isdir(os.path.join(in_parent, i))])
+            for d in dirs:
+                for pat in vid_fmts:
+                    found = sorted(glob.glob(os.path.join(d, pat)))
+                    if found:
+                        if not one_dir:
+                            vids.extend(found[:1])
+                            break
+                        else:
+                            vids.extend(found)
+            vids = [i for i in vids if i is not None]
+        
+        if with_menu:
+            if menu_imgs:
+                imgs = menu_imgs
+            else:
+                # get images
+                #~ imgs = [self.get_img(i) for i in vids]
+                for i in vids:
+                    img = self.get_img(i, one_dir)
+                    imgs.append(img)
+            
+            if with_menu_labels:
+                if menu_labels:
+                    labels = menu_labels
+                else:
+                    # get labels
+                    if label_from_img:
+                        label_list = imgs
+                    else:
+                        label_list = vids
+                    if label_from_dir:
+                        pt = 0
+                    else:
+                        pt = 1
+                    
+                    labels = [os.path.splitext(
+                                     os.path.basename(os.path.split(i)[pt]))[0]
+                              if i is not None else None 
+                              for i in label_list]
+                    if strip_label_year:
+                        labels = [re.sub(r'\s*\([-./\d]{2,12}\)\s*$', '', i)
+                                  for i in labels]
+        self.in_vids = vids
+        self.menu_imgs = imgs
+        self.menu_labels = labels
+    
+    def get_img(self, vid, one_dir):
+        img_fmts = ['png', 'jpg', 'bmp', 'gif']
+        img_names = ['poster', 'folder']
+        dirname, basename = os.path.split(vid)
+        name, ext = os.path.splitext(basename)
+        for n in [name, basename] + img_names:
+            img_base = os.path.join(dirname, n)
+            for fmt in img_fmts:
+                img = '.'.join([img_base, fmt])
+                if os.path.exists(img):
+                    return img
+        if one_dir:
+            return None
+        for fmt in img_fmts:
+            found = sorted(glob.glob(os.path.join(dirname, '*.{}'.format(fmt))))
+            if found:
+                return found[0]
+        return None
     
     def setup_out_dir(self):
         # output directory
         if self.menu:
-            out_dir = self.menu.out_dir
+            tmp_dir = self.menu.out_dir
             out_name = self.menu.out_name
             self.path_menu_mpg = self.menu.path_menu_mpg
         else:
-            if self.out_dir is None:
-                out_dir = os.getcwd()
+            if self.tmp_dir is None:
+                tmp_dir = os.getcwd()
             else:
-                if not os.path.exists(out_dir):
-                    os.makedirs(out_dir)
+                if not os.path.exists(tmp_dir):
+                    os.makedirs(tmp_dir)
             # output name
             if self.out_name is None:
                 out_time = datetime.now().strftime('%Y.%m.%d-%H%M%S')
                 out_name = 'DVD_menu_{}'.format(out_time)
-        self.out_path = os.path.join(out_dir, out_name)
-        self.out_dir = out_dir
+        self.out_path = os.path.join(tmp_dir, out_name)
+        self.tmp_dir = tmp_dir
         self.out_name = out_name
         self.path_dvd_xml = '{}_dvd.xml'.format(self.out_path)   # dvd.xml
         if self.dvd_dir is None:
-            self.dvd_dir = os.path.join(self.out_dir, 'DVD')
+            self.dvd_dir = os.path.join(self.tmp_dir, 'DVD')
         else:
             if not os.path.exists(self.dvd_dir):
                 os.makedirs(self.dvd_dir)
+    
+    def calculate_vbitrate(self):
+        duration = self.get_duration()
+        abitrate = self.get_audio_bitrate()
+        available = self.dvd_size / duration
+        available -= available * .05
+        v_available = available - abitrate
+        
+        if not self.vbitrate:
+            self.vbitrate = math.floor(v_available)
+        else:
+            if self.vbitrate > v_available:
+                print('WARNING: Not enough space to encode at specified',
+                      'audio/video bitrates!')
+        
+        total_bitrate = self.vbitrate + self.abitrate
+        # 9800kbps (dvd max) = 10035200 bits per second
+        if total_bitrate > 10035200:
+            self.vbitrate = math.floor(10035200 - self.abitrate)
+    
+    def get_duration(self):
+        durations = []
+        for i in self.in_vids:
+            d_ms = subprocess.check_output(['mediainfo', 
+                                            '--output=General;%Duration%',
+                                            i], 
+                                           universal_newlines=True).strip()
+            d_s = int(d_ms) / 1000
+            durations.append(d_s)
+        seconds = sum(durations)
+        return seconds
+    
+    def get_audio_bitrate(self):
+        return self.abitrate
+    
+    def encode_video(self):
+        if self.no_encode_v:
+            self.mpeg_files = [i for i in self.in_vids]
+            return
+        if self.dvd_ar == 16/9:
+            aspect = '16:9'
+        else:
+            aspect = '4:3'
+        for i in self.in_vids:
+            e = Encoder(i, out_dir=self.tmp_dir, 
+                                vbitrate=self.vbitrate, abitrate=self.abitrate, 
+                                aspect=aspect)
+            encoded = e.encode()
+            self.mpeg_files.append(encoded)
     
     def create_dvd_xml(self):
         if self.dvd_format == 'PAL':
@@ -618,11 +734,21 @@ class DVD (object):
             menus_post.text = 'jump cell 1;'
         titles = etree.SubElement(titleset, 'titles')
         titles_vid = etree.SubElement(titles, 'video', format=fmt, aspect=dvd_ar)
-        titles_pgc = etree.SubElement(titles, 'pgc')
-        for i in self.vid_files:
-            v = etree.SubElement(titles_pgc, 'vob', file=i)
-        titles_post = etree.SubElement(titles_pgc, 'post')
-        titles_post.text = 'call menu;'
+        if self.separate_titles:
+            for n,i in enumerate(self.mpeg_files):
+                pgc = etree.SubElement(titles, 'pgc')
+                v = etree.SubElement(pgc, 'vob', file=i)
+                post = etree.SubElement(pgc, 'post')
+                if n == len(self.mpeg_files)-1:
+                    post.text = 'call menu;'
+                else:
+                    post.text = 'jump title {};'.format(n+2)
+        else:
+            titles_pgc = etree.SubElement(titles, 'pgc')
+            for i in self.mpeg_files:
+                v = etree.SubElement(titles_pgc, 'vob', file=i)
+            titles_post = etree.SubElement(titles_pgc, 'post')
+            titles_post.text = 'call menu;'
         tree = etree.ElementTree(dvdauthor)
         tree.write(self.path_dvd_xml, encoding='UTF-8', pretty_print=True)
     
@@ -631,5 +757,4 @@ class DVD (object):
         e['VIDEO_FORMAT'] = 'NTSC'
         cmd = ['dvdauthor', '-x', self.path_dvd_xml, '-o', self.dvd_dir]
         o = subprocess.check_output(cmd, env=e, universal_newlines=True)
-
 
