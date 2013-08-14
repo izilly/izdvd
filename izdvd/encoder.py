@@ -11,16 +11,18 @@ import argparse
 import subprocess
 import re
 import math
+from lxml import etree
 
 class Error(Exception):
     def __init__(self, message):
         self.message = message
 
 class Encoder (object):
-    def __init__(self, in_file=None, out_file=None, out_dir=None, 
+    def __init__(self, in_file=None, in_srt=None, out_file=None, out_dir=None, 
                  aspect='16:9', vbitrate=1000000, abitrate=96000, 
                  two_pass=True, dry_run=False, get_args=False):
         self.in_file = in_file
+        self.in_srt= in_srt
         self.out_file = out_file
         self.out_dir = out_dir
         self.aspect = aspect
@@ -31,12 +33,6 @@ class Encoder (object):
         if get_args:
             self.get_options()
         self.setup_out_files()
-        #~ self.cwd = os.getcwd()
-        #~ self.in_filename = os.path.basename(self.in_file)
-        #~ self.log_file = os.path.join(self.cwd, self.in_filename+'.log')
-        #~ self.out_file = os.path.join(self.cwd, self.in_filename+'.mpg')
-#        self.log_file = self.in_file+'.log'
-#        self.out_file = self.in_file+'.mpg'
         self.get_size()
         self.calculate_scaling()
         self.calculate_padding()
@@ -51,6 +47,8 @@ class Encoder (object):
                 self.out_dir = self.cwd
             self.log_file = os.path.join(self.out_dir, self.in_filename+'.log')
             self.out_file = os.path.join(self.out_dir, self.in_filename+'.mpg')
+            self.subs_srt = os.path.join(self.out_dir, self.in_filename+'.subs.utf8.srt')
+            self.subs_xml = os.path.join(self.out_dir, self.in_filename+'.subs.xml')
         else:
             self.out_dir = os.path.abspath(os.path.split(self.out_file)[0])
             self.log_file = os.path.splitext(self.out_file)[0] + '.log'
@@ -91,25 +89,6 @@ class Encoder (object):
                 else:
                     dar = float(dar_mi)
                 self.dar = dar
-                
-                #~ dar_mi = re.search(r':\s*(\d+.*)', l)
-                #~ dar_mi = re.search(r':\s*([0-9.]+):([0-9.]+)', l)
-                #~ dar_w = float(dar_mi.group(1))
-                #~ dar_h = float(dar_mi.group(2))
-                #~ dar = float(dar_w / dar_h)
-                #~ self.dar = dar
-        #~ print('DAR info: {} x {}'.format(self.width, self.height))
-#        if not self.is_square_dar():
-#            self.height_actual = self.height
-#            self.height = self.width / self.dar
-#            print('non-square DAR!')
-#            print('DAR:{} h:{} '.format(self.dar, self.height))
-                
-#    def is_square_dar(self):
-#        ar = self.width / self.height
-#        if abs( ar - self.dar ) > .07:
-#            #~ print('w:{} h:{} '.format(self.width, self.height))
-#            return False
     
     def check_valid_dvd(self):
         if self.height <= 480 and self.width <= 720:
@@ -149,96 +128,52 @@ class Encoder (object):
         self.pad = 'pad=720:480:{}:{}:0x000000'.format(self.pad_x, self.pad_y)
         self.vf = '{},{}'.format(self.scale, self.pad)
         print('WTA calculated -vf: {}'.format(self.vf))
-
     
-    def ccalculate_padding(self):
-        if self.scale:
-            self.scale_w, self.scale_h = self.scale.split(':')
-            self.scale_w = int(self.scale_w)
-            self.scale_h = int(self.scale_h)
-            print('user scaling:', self.scale_w, self.scale_h)
+    def write_srt(self):
+        if self.in_srt:
+            with open(self.in_srt, 'rb') as f:
+                b = f.read()
+            t = None
+            for enc in ['utf-8', 'iso8859-1']:
+                try:
+                    t = b.decode(enc)
+                    break
+                except UnicodeDecodeError:
+                    continue
         else:
-            if self.check_valid_dvd():
-                pass
-                
-            # try first to scale height based on 854px width (which is 720px in DVD)
-             # and pad the top/bottom to fill 480px
-            self.scale_w = 720
-            self.scale_h = math.floor(( self.height * 854 ) / self.width)
-            # if calculated height doesn't fit in 480px, then scale width based on
-             # 480px height and pad left/right to fill 854px/720px
-            print('initial padding: {} x {}'.format(self.scale_w, self.scale_h))
-            if self.scale_h > 480:
-                self.scale_h = 480
-                scale_w_square = ( self.width * 480 ) / self.height
-                # now convert to rectangular pixel size
-                scale_w_dvd = scale_w_square * ( 720/854 )
-                self.scale_w = math.floor(scale_w_dvd)
-                if self.scale_w > 720:
-                    raise Error('Error: could not calculate a valid DVD resolution')
-                if self.scale_w % 2 != 0:
-                    self.scale_w -= 1
-                print('720w padding: {} x {}'.format(self.scale_w, self.scale_h))
-            else:
-                if self.scale_h % 2 != 0:
-                    self.scale_h -= 1
-                print('480h padding: {} x {}'.format(self.scale_w, self.scale_h))
-        
-        self.pad_x = 0
-        self.pad_y = math.floor( ( 480 - self.scale_h ) / 2 )
-        if self.pad_y % 2 != 0:
-            self.pad_y -= 1
-        self.scale = 'scale={}:{}'.format(self.scale_w, self.scale_h)
-        self.pad = 'pad=720:480:{}:{}:0x000000'.format(self.pad_x, self.pad_y)
-        self.vf = '{},{}'.format(self.scale, self.pad)
-        print('WTA calculated -vf: {}'.format(self.vf))
+            t= None
+        if not t:
+            t = '1\n00:00:00,000 --> 00:01:00,000\nSubs'
+        with open(self.subs_srt, 'w') as f:
+            f.write(t)
+    
+    def create_subs_xml(self):
+        subpictures = etree.Element('subpictures')
+        stream = etree.SubElement(subpictures, 'stream')
+        textsub = etree.SubElement(stream, 'textsub')
+        textsub.set('filename', self.subs_srt)
+        textsub.set('characterset', 'UTF-8')
+        textsub.set('fontsize', '28.0')
+        textsub.set('font', 'arial.ttf')
+        textsub.set('fill-color', 'rgba(220, 220, 220, 255)')
+        textsub.set('outline-color', 'rgba(35, 35, 35, 175)')
+        textsub.set('outline-thickness', '2.0')
+        textsub.set('shadow-offset', '2, 2')
+        textsub.set('shadow-color', "rgba(35, 35, 35, 175)")
+        textsub.set('horizontal-alignment', "center")
+        textsub.set('vertical-alignment', "bottom")
+        textsub.set('subtitle-fps', "29.97")
+        textsub.set('movie-fps', "29.97")
+        textsub.set('aspect', self.aspect)
+        textsub.set('force', 'no')
+        tree = etree.ElementTree(subpictures)
+        tree.write(self.subs_xml, encoding='UTF-8', pretty_print=True)
     
     def build_cmd(self, passnum):
         passnum = str(passnum)
-        #~ enc_opts = [{'-i': self.in_file},
-                        #~ {'-vf': self.vf},
-                        #~ {'-target': 'ntsc-dvd'},
-                        #~ {'-acodec': 'ac3'},
-                        #~ {'-sn': None},
-                        #~ {'-g': '12'},
-                        #~ {'-bf': '2'},
-                        #~ {'-strict': '1'},
-                        #~ {'-ac': '2'},
-                        #~ {'-s': '720x480'},
-                        #~ {'-threads': '4'},
-                        #~ {'-trellis': '1'},
-                        #~ {'-mbd': '2'},
-                        #~ {'-b:v': self.vbitrate},
-                        #~ {'-b:a': self.abitrate},
-                        #~ {'-aspect': self.aspect},
-                        #~ {'-pass': passnum},
-                        #~ {'-passlogfile': self.log_file}]
-        #~ enc_opts = [{'-i': self.in_file},
-                        #~ {'-f': 'dvd'},
-                        #~ {'-target': 'ntsc-dvd'},
-                        #~ {'-aspect': self.aspect},
-                        #~ {'-vf': self.vf},
-                        #~ {'-s': '720x480'},
-                        #~ {'-b:v': self.vbitrate},
-                        #~ {'-b:a': self.abitrate},
-                        #~ {'-acodec': 'ac3'},
-                        #~ {'-ac': '2'},
-                        #~ {'-pass': passnum},
-                        #~ {'-passlogfile': self.log_file}]
-        #~ enc_opts = [{'-i': self.in_file},
-                        #~ {'-f': 'dvd'},
-                        #~ {'-target': 'ntsc-dvd'},
-                        #~ {'-aspect': self.aspect},
-                        #~ {'-vf': self.vf},
-                        #~ {'-s': '720x480'},
-                        #~ {'-b:v': self.vbitrate},
-                        #~ {'-b:a': self.abitrate},
-                        #~ {'-acodec': 'ac3'},
-                        #~ {'-ac': '2'}]
         enc_opts = [{'-i': self.in_file},
                         {'-f': 'dvd'},
                         {'-target': 'ntsc-dvd'},
-                        #~ {'-target': 'film-dvd'},
                         {'-aspect': self.aspect},
                         {'-vf': self.vf},
                         {'-s': '720x480'},
@@ -259,23 +194,17 @@ class Encoder (object):
         
         if self.two_pass:
             args.extend(['-pass', passnum, '-passlogfile', self.log_file])
-            if passnum == '1':
-                args.extend(['-y', '/dev/null'])
-            elif passnum == '2':
-                args.append(self.out_file)
-        else:
-            args.append(self.out_file)
         return args
     
     def encode(self):
-        first_pass = self.build_cmd(1)
+        first_pass = self.build_cmd(1) + ['-y', '/dev/null']
         print('First pass: \n{}\n'.format(' '.join(first_pass)))
         
         if not self.dry_run:
             subprocess.check_call(first_pass)
         
         if self.two_pass:
-            second_pass = self.build_cmd(2)
+            second_pass = self.build_cmd(2) + [self.out_file]
             print('\n{}\n\nSecond pass: \n{}\n'.format('='*78 , 
                                                        ' '.join(second_pass)))
             if not self.dry_run:
