@@ -13,13 +13,34 @@ import subprocess
 import math
 from collections import Counter
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from lxml import etree
 import glob
 import re
+import logging
 
 PROG_NAME = 'WTA_DVD'
+
+logger = logging.getLogger()
+logger.addHandler(logging.StreamHandler())
+logger.setLevel(logging.INFO)
+
+def log_items(items=None, heading=None, lvl=logging.INFO, sep='=', sep_length=78):
+    if heading:
+        logger.log(lvl, sep*sep_length)
+        logger.log(lvl, heading)
+        logger.log(lvl, sep*sep_length)
+    if items is False:
+        return
+    if items is None:
+        items = ['<none>']
+    if type(items) == str:
+        items = [items]
+    for i in items+['']:
+        if type(i) == tuple:
+            i = ': '.join(i)
+        logger.log(lvl, i)
 
 def get_space_available(path):
     s = os.statvfs(path)
@@ -30,7 +51,7 @@ class BG (object):
                  button_labels=None, 
                  out_dir=None, out_name=None,
                  border_px=5, border_color='white', 
-                 highlight_color='green', select_color='red',
+                 highlight_color='#6de36d', select_color='red',
                  label_line_height=0, label_lines=2, 
                  label_padding=5, outer_padding=30, inner_padding=30, 
                  width=None, height=None, display_ar=None):
@@ -270,6 +291,7 @@ class BG (object):
         images.
         '''
         if not self.button_labels or not self.label_line_height > 0:
+            self.label_imgs = None
             return False
         button_w = max([i.get_width() for i in self.button_imgs])
         labels = []
@@ -290,8 +312,9 @@ class BG (object):
         '''Appends label images to button images to create a new image 
         containing both.
         '''
-        for n,img in enumerate(self.button_imgs):
-            img.append([self.label_imgs[n]], padding=self.label_padding)
+        if self.label_imgs:
+            for n,img in enumerate(self.button_imgs):
+                img.append([self.label_imgs[n]], padding=self.label_padding)
     
     def apply_shadows(self):
         for i in self.button_imgs:
@@ -363,7 +386,7 @@ class DVDMenu (object):
                  button_labels=None, 
                  out_dir=None, out_name=None,
                  label_line_height=0, label_lines=2, 
-                 label_padding=5, outer_padding=30, inner_padding=30, 
+                 label_padding=5, outer_padding=42, inner_padding=30, 
                  dvd_format='NTSC', dvd_menu_ar=4/3, dvd_menu_audio=None):
         width = 720
         if dvd_format == 'NTSC':
@@ -515,19 +538,18 @@ class DVDMenu (object):
             out, err = p2.communicate()
 
 
-
-
 class DVD (object):
     def __init__(self, 
                  in_vids=None, in_dirs=None, in_parent=None, one_dir=False,
                  with_menu=True, with_menu_labels=True, label_from_img=False,
                  label_from_dir=True, strip_label_year=True,
                  menu_bg=None, menu_imgs=None, menu_labels=None,
+                 menu_label_line_height=18,
                  #~ menu=None, 
                  out_name=None, 
                  out_dvd_dir=None, out_menu_dir=None, tmp_dir=None,
                  dvd_format='NTSC', dvd_ar=16/9,
-                 vbitrate=None, abitrate=192000, 
+                 vbitrate=None, abitrate=196608, two_pass=True,
                  no_encode_v=False, no_encode_a=False, 
                  dvd_size_bits=37602983936,
                  separate_titles=False):
@@ -544,6 +566,7 @@ class DVD (object):
         self.menu_bg = menu_bg
         self.menu_imgs = menu_imgs
         self.menu_labels = menu_labels
+        self.menu_label_line_height = menu_label_line_height
         self.out_name = out_name
         self.out_dvd_dir = out_dvd_dir
         self.out_menu_dir = out_menu_dir
@@ -552,17 +575,18 @@ class DVD (object):
         self.dvd_ar = dvd_ar
         self.vbitrate = vbitrate
         self.abitrate = abitrate
+        self.two_pass = two_pass
         self.no_encode_v = no_encode_v
         self.no_encode_a = no_encode_a
         self.dvd_size_bits = dvd_size_bits
         self.dvd_size_bytes = dvd_size_bits / 8
         self.separate_titles = separate_titles
         # setup paths
+        self.get_out_files(out_name, out_dvd_dir, out_menu_dir, tmp_dir)
         self.get_in_files(in_vids, in_dirs, in_parent, one_dir,
                           menu_bg, menu_imgs, menu_labels, 
                           with_menu, with_menu_labels, label_from_img,
                           label_from_dir, strip_label_year)
-        self.get_out_files(out_name, out_dvd_dir, out_menu_dir, tmp_dir)
         self.get_menu()
         # prepare mpeg2 files
         self.calculate_vbitrate()
@@ -632,11 +656,17 @@ class DVD (object):
                               if i is not None else None 
                               for i in label_list]
                     if strip_label_year:
-                        menu_labels = [re.sub(r'\s*\([-./\d]{2,12}\)\s*$', '', i)
-                                  for i in menu_labels]
+                        pat = r'\s*\([-./\d]{2,12}\)\s*$'
+                        menu_labels = [re.sub(pat, '', i) for i in menu_labels]
         self.in_vids = in_vids
         self.menu_imgs = menu_imgs
         self.menu_labels = menu_labels
+        
+        log_items(self.in_vids, 'Input Video Files')
+        log_items(self.menu_imgs, 'Input Menu Images')
+        log_items(self.menu_labels, 'Input Menu Labels')
+        #~ logger.info('{0}\nInput Video Files:\n{0}\n{1}'.format('='*78,
+                                                               #~ '\n'.join(self.in_vids)))
     
     def get_img(self, vid, one_dir):
         img_fmts = ['png', 'jpg', 'bmp', 'gif']
@@ -696,12 +726,20 @@ class DVD (object):
             raise
         # dvdauthor xml file
         out_dvd_xml = os.path.join(tmp_dir, '{}_dvd.xml'.format(out_name))
+        out_log = os.path.join(out_menu_dir, '{}.log'.format(out_name))
+        logger.addHandler(logging.FileHandler(out_log))
+
         
         self.out_name = out_name
         self.out_dvd_dir = out_dvd_dir
         self.out_menu_dir = out_menu_dir
         self.tmp_dir = tmp_dir
         self.out_dvd_xml = out_dvd_xml
+        self.out_log = out_log
+        
+        logs = list(zip(['name', 'dvd_dir', 'menu_dir', 'tmp_dir'],
+                        [out_name, out_dvd_dir, out_menu_dir, tmp_dir]))
+        log_items(logs, 'Output Paths')
     
     def calculate_vbitrate(self):
         duration = self.get_duration()
@@ -721,6 +759,14 @@ class DVD (object):
         # 9800kbps (dvd max) = 10035200 bits per second
         if total_bitrate > 10035200:
             self.vbitrate = math.floor(10035200 - self.abitrate)
+        
+        logs = list(zip(['Total Duration', 'Bitrate', 'Video Bitrate', 
+                         'Audio Bitrate'], 
+                        [str(timedelta(seconds=duration)), 
+                         '{:.1f} kbps'.format(total_bitrate / 1024),
+                         '{:.1f} kbps'.format(self.vbitrate / 1024),
+                         '{:.1f} kbps'.format(self.abitrate / 1024),]))
+        log_items(logs, 'DVD Info')
     
     def get_duration(self):
         durations = []
@@ -739,28 +785,40 @@ class DVD (object):
     
     def encode_video(self):
         if self.no_encode_v:
+            log_items('Skipping encoding mpeg2 video...')
             self.mpeg_files = [i for i in self.in_vids]
             return
+        log_items(heading='Encoding mpeg2 video...', items=False)
         if self.dvd_ar == 16/9:
             aspect = '16:9'
         else:
             aspect = '4:3'
         self.mpeg_files = []
-        for i in self.in_vids:
+        for n,i in enumerate(self.in_vids):
             e = Encoder(i, out_dir=self.tmp_dir, 
-                                vbitrate=self.vbitrate, abitrate=self.abitrate, 
+                                vbitrate=self.vbitrate, abitrate=self.abitrate,
+                                two_pass=self.two_pass,
                                 aspect=aspect)
+            cmd1 = ' '.join(e.build_cmd(1))
+            cmd2 = ' '.join(e.build_cmd(2))
+            log_msg = ['Encoding file {} of {}...'.format(n+1, len(self.in_vids))]
+            log_msg.extend(['', ('First Pass', cmd1), '', ('Second Pass', cmd2)])
+            log_items(log_msg)
             encoded = e.encode()
             self.mpeg_files.append(encoded)
     
     def get_menu(self):
+        log_items(heading='Making DVD Menu...', items=False)
+        if not self.with_menu_labels:
+            self.menu_label_line_height = 0
         self.menu = DVDMenu(self.menu_bg, self.menu_imgs, 
                             button_labels=self.menu_labels, 
-                            label_line_height=18,
+                            label_line_height=self.menu_label_line_height,
                             out_dir=self.out_menu_dir,
                             out_name=self.out_name)
     
     def create_dvd_xml(self):
+        log_items(heading='Making dvdauthor xml...', items=False)
         if self.dvd_format == 'PAL':
             fmt = 'pal'
         else:
@@ -812,8 +870,12 @@ class DVD (object):
         tree.write(self.out_dvd_xml, encoding='UTF-8', pretty_print=True)
     
     def author_dvd(self):
+        log_items(heading='Writing DVD to disc...', items=False)
         e = dict(os.environ)
         e['VIDEO_FORMAT'] = 'NTSC'
         cmd = ['dvdauthor', '-x', self.out_dvd_xml, '-o', self.out_dvd_dir]
         o = subprocess.check_output(cmd, env=e, universal_newlines=True)
+
+
+
 
