@@ -19,13 +19,14 @@ class Error(Exception):
 class Encoder (object):
     def __init__(self, in_file=None, out_file=None, out_dir=None, 
                  aspect='16:9', vbitrate=1000000, abitrate=96000, 
-                 dry_run=False, get_args=False):
+                 two_pass=True, dry_run=False, get_args=False):
         self.in_file = in_file
         self.out_file = out_file
         self.out_dir = out_dir
         self.aspect = aspect
         self.vbitrate = vbitrate
         self.abitrate = abitrate
+        self.two_pass = two_pass
         self.dry_run = dry_run
         if get_args:
             self.get_options()
@@ -125,15 +126,21 @@ class Encoder (object):
     
     def calculate_scaling(self):
         self.ar = self.width / self.height
+        if self.aspect == '4:3':
+            display_width = 640
+            display_ar = 4/3
+        else:
+            display_width = 854
+            display_ar = 16/9
         if self.check_valid_dvd():
             self.scale_w = self.width
             self.scale_h = self.height
-        elif self.dar >= (16/9):
+        elif self.dar >= display_ar:
             self.scale_w = 720
-            self.scale_h = math.floor(854/self.dar)
+            self.scale_h = math.floor(display_width/self.dar)
         else:
             self.scale_h = 480
-            self.scale_w = math.floor((480*self.dar)/(854/720))
+            self.scale_w = math.floor((480*self.dar)/(display_width/720))
     
     def calculate_padding(self):
         self.pad_x = math.floor((720-self.scale_w)/2)
@@ -218,24 +225,46 @@ class Encoder (object):
                         #~ {'-ac': '2'},
                         #~ {'-pass': passnum},
                         #~ {'-passlogfile': self.log_file}]
+        #~ enc_opts = [{'-i': self.in_file},
+                        #~ {'-f': 'dvd'},
+                        #~ {'-target': 'ntsc-dvd'},
+                        #~ {'-aspect': self.aspect},
+                        #~ {'-vf': self.vf},
+                        #~ {'-s': '720x480'},
+                        #~ {'-b:v': self.vbitrate},
+                        #~ {'-b:a': self.abitrate},
+                        #~ {'-acodec': 'ac3'},
+                        #~ {'-ac': '2'}]
         enc_opts = [{'-i': self.in_file},
                         {'-f': 'dvd'},
                         {'-target': 'ntsc-dvd'},
+                        #~ {'-target': 'film-dvd'},
                         {'-aspect': self.aspect},
                         {'-vf': self.vf},
                         {'-s': '720x480'},
                         {'-b:v': self.vbitrate},
+                        {'-sn': None},
+                        {'-g': '12'},
+                        {'-bf': '2'},
+                        {'-strict': '1'},
+                        {'-threads': '4'},
+                        {'-trellis': '1'},
+                        {'-mbd': '2'},
                         {'-b:a': self.abitrate},
                         {'-acodec': 'ac3'},
                         {'-ac': '2'}]
         args = ['ffmpeg']
         [args.extend([str(k), str(v)]) if v is not None else args.extend([str(k)]) 
          for i in enc_opts for (k,v) in i.items()]
-        args.append(self.out_file)
-        #~ if passnum == '1':
-            #~ args.extend(['-y', '/dev/null'])
-        #~ elif passnum == '2':
-            #~ args.append(self.out_file)
+        
+        if self.two_pass:
+            args.extend(['-pass', passnum, '-passlogfile', self.log_file])
+            if passnum == '1':
+                args.extend(['-y', '/dev/null'])
+            elif passnum == '2':
+                args.append(self.out_file)
+        else:
+            args.append(self.out_file)
         return args
     
     def encode(self):
@@ -245,11 +274,12 @@ class Encoder (object):
         if not self.dry_run:
             subprocess.check_call(first_pass)
         
-        #~ second_pass = self.build_cmd(2)
-        #~ print('\n{}\n\nSecond pass: \n{}\n'.format('='*78 , 
-                                                   #~ ' '.join(second_pass)))
-        #~ if not self.dry_run:
-            #~ subprocess.check_call(second_pass)
+        if self.two_pass:
+            second_pass = self.build_cmd(2)
+            print('\n{}\n\nSecond pass: \n{}\n'.format('='*78 , 
+                                                       ' '.join(second_pass)))
+            if not self.dry_run:
+                subprocess.check_call(second_pass)
         return self.out_file
                 
         
