@@ -549,7 +549,7 @@ class DVD (object):
                  #~ menu=None, 
                  out_name=None, 
                  out_dvd_dir=None, out_menu_dir=None, tmp_dir=None,
-                 dvd_format='NTSC', dvd_ar=16/9,
+                 dvd_format='NTSC', dvd_ar=16/9, dvd_menu_ar=None,
                  vbitrate=None, abitrate=196608, two_pass=True,
                  no_encode_v=False, no_encode_a=False, 
                  dvd_size_bits=37602983936,
@@ -578,6 +578,10 @@ class DVD (object):
         self.tmp_dir = tmp_dir
         self.dvd_format = dvd_format
         self.dvd_ar = dvd_ar
+        if dvd_menu_ar is None:
+            self.dvd_menu_ar = dvd_ar
+        else:
+            self.dvd_menu_ar = dvd_menu_ar
         self.vbitrate = vbitrate
         self.abitrate = abitrate
         self.two_pass = two_pass
@@ -836,7 +840,8 @@ class DVD (object):
                             button_labels=self.menu_labels, 
                             label_line_height=self.menu_label_line_height,
                             out_dir=self.out_menu_dir,
-                            out_name=self.out_name)
+                            out_name=self.out_name,
+                            dvd_menu_ar=self.dvd_menu_ar)
     
     def create_dvd_xml(self):
         log_items(heading='Making dvdauthor xml...', items=False)
