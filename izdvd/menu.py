@@ -541,6 +541,7 @@ class DVDMenu (object):
 class DVD (object):
     def __init__(self, 
                  in_vids=None, in_dirs=None, in_parent=None, one_dir=False,
+                 in_srts=None, with_subs=False, sub_lang='en', audio_lang='en',
                  with_menu=True, with_menu_labels=True, label_from_img=False,
                  label_from_dir=True, strip_label_year=True,
                  menu_bg=None, menu_imgs=None, menu_labels=None,
@@ -558,6 +559,10 @@ class DVD (object):
         self.in_dirs = in_dirs
         self.in_parent = in_parent
         self.one_dir = one_dir
+        self.in_srts = in_srts
+        self.with_subs = with_subs
+        self.sub_lang = sub_lang
+        self.audio_lang = audio_lang
         self.with_menu = with_menu
         self.with_menu_labels = with_menu_labels
         self.label_from_img = label_from_img
@@ -586,7 +591,8 @@ class DVD (object):
         self.get_in_files(in_vids, in_dirs, in_parent, one_dir,
                           menu_bg, menu_imgs, menu_labels, 
                           with_menu, with_menu_labels, label_from_img,
-                          label_from_dir, strip_label_year)
+                          label_from_dir, strip_label_year,
+                          with_subs, in_srts)
         self.get_menu()
         # prepare mpeg2 files
         self.calculate_vbitrate()
@@ -599,12 +605,14 @@ class DVD (object):
     def get_in_files(self, in_vids, in_dirs, in_parent, one_dir,
                      menu_bg, menu_imgs, menu_labels, 
                      with_menu, with_menu_labels, label_from_img, 
-                     label_from_dir, strip_label_year):
+                     label_from_dir, strip_label_year,
+                     with_subs, in_srts):
         #~ vids = []
         #~ imgs = []
         #~ labels = []
         vid_fmts = ['*.mp4', '*.avi', '*.mkv']
         img_fmts = ['*.png', '*.jpg', '*.bmp', '*.gif']
+        sub_fmts = ['*.srt']
         if not in_vids:
             in_vids = []
             if not in_dirs:
@@ -635,7 +643,10 @@ class DVD (object):
                 menu_imgs = []
                 #~ imgs = [self.get_img(i) for i in vids]
                 for i in in_vids:
-                    img = self.get_img(i, one_dir)
+                    img = self.get_matching_file(i, 
+                                                 ['png', 'jpg', 'bmp', 'gif'], 
+                                                 ['poster', 'folder'],
+                                                 one_dir)
                     menu_imgs.append(img)
             
             if with_menu_labels:
@@ -658,9 +669,17 @@ class DVD (object):
                     if strip_label_year:
                         pat = r'\s*\([-./\d]{2,12}\)\s*$'
                         menu_labels = [re.sub(pat, '', i) for i in menu_labels]
+        if with_subs:
+            if not in_srts:
+                in_srts = []
+                for i in in_vids:
+                    s = self.get_matching_file(i, ['*.srt'], [], one_dir)
+                    in_srts.append(s)
+                
         self.in_vids = in_vids
         self.menu_imgs = menu_imgs
         self.menu_labels = menu_labels
+        self.in_srts = in_srts
         
         log_items(self.in_vids, 'Input Video Files')
         log_items(self.menu_imgs, 'Input Menu Images')
@@ -668,20 +687,20 @@ class DVD (object):
         #~ logger.info('{0}\nInput Video Files:\n{0}\n{1}'.format('='*78,
                                                                #~ '\n'.join(self.in_vids)))
     
-    def get_img(self, vid, one_dir):
-        img_fmts = ['png', 'jpg', 'bmp', 'gif']
-        img_names = ['poster', 'folder']
+    def get_matching_file(self, vid, fmts, names, one_dir):
+        #~ img_fmts = ['png', 'jpg', 'bmp', 'gif']
+        #~ img_names = ['poster', 'folder']
         dirname, basename = os.path.split(vid)
         name, ext = os.path.splitext(basename)
-        for n in [name, basename] + img_names:
+        for n in [name, basename] + names:
             img_base = os.path.join(dirname, n)
-            for fmt in img_fmts:
+            for fmt in fmts:
                 img = '.'.join([img_base, fmt])
                 if os.path.exists(img):
                     return img
         if one_dir:
             return None
-        for fmt in img_fmts:
+        for fmt in fmts:
             found = sorted(glob.glob(os.path.join(dirname, '*.{}'.format(fmt))))
             if found:
                 return found[0]
@@ -798,7 +817,9 @@ class DVD (object):
             e = Encoder(i, out_dir=self.tmp_dir, 
                                 vbitrate=self.vbitrate, abitrate=self.abitrate,
                                 two_pass=self.two_pass,
-                                aspect=aspect)
+                                aspect=aspect,
+                                with_subs=self.with_subs, 
+                                in_srt=self.in_srts[n])
             cmd1 = ' '.join(e.build_cmd(1))
             cmd2 = ' '.join(e.build_cmd(2))
             log_msg = ['Encoding file {} of {}...'.format(n+1, len(self.in_vids))]
@@ -851,6 +872,10 @@ class DVD (object):
             menus_post.text = 'jump cell 1;'
         titles = etree.SubElement(titleset, 'titles')
         titles_vid = etree.SubElement(titles, 'video', format=fmt, aspect=dvd_ar)
+        titles_audio = etree.SubElement(titles, 'audio', lang=self.audio_lang)
+        if self.with_subs:
+            titles_sub = etree.SubElement(titles, 'subpicture', 
+                                          lang=self.sub_lang)
         if self.separate_titles:
             for n,i in enumerate(self.mpeg_files):
                 pgc = etree.SubElement(titles, 'pgc')

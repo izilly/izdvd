@@ -20,7 +20,8 @@ class Error(Exception):
 class Encoder (object):
     def __init__(self, in_file=None, in_srt=None, out_file=None, out_dir=None, 
                  aspect='16:9', vbitrate=1000000, abitrate=96000, 
-                 two_pass=True, dry_run=False, get_args=False):
+                 two_pass=True, dry_run=False, get_args=False, 
+                 with_subs=False):
         self.in_file = in_file
         self.in_srt= in_srt
         self.out_file = out_file
@@ -30,13 +31,20 @@ class Encoder (object):
         self.abitrate = abitrate
         self.two_pass = two_pass
         self.dry_run = dry_run
+        self.with_subs = with_subs
+        if in_srt:
+            self.with_subs = True
         if get_args:
             self.get_options()
         self.setup_out_files()
         self.get_size()
         self.calculate_scaling()
         self.calculate_padding()
+        if self.with_subs:
+            self.write_srt()
+            self.create_subs_xml()
         self.passnum = '1'
+        
         #~ self.encode()
     
     def setup_out_files(self):
@@ -197,18 +205,31 @@ class Encoder (object):
         return args
     
     def encode(self):
-        first_pass = self.build_cmd(1) + ['-y', '/dev/null']
-        print('First pass: \n{}\n'.format(' '.join(first_pass)))
-        
-        if not self.dry_run:
-            subprocess.check_call(first_pass)
-        
         if self.two_pass:
-            second_pass = self.build_cmd(2) + [self.out_file]
-            print('\n{}\n\nSecond pass: \n{}\n'.format('='*78 , 
-                                                       ' '.join(second_pass)))
+            first_pass = self.build_cmd(1) + ['-y', '/dev/null']
             if not self.dry_run:
-                subprocess.check_call(second_pass)
+                subprocess.check_call(first_pass)
+            else:
+                print('First pass: \n{}\n'.format(' '.join(first_pass)))
+        
+        final_pass = self.build_cmd(2)
+        if self.dry_run:
+            print('\n{}\n\nSecond pass: \n{}\n'.format('='*78 , 
+                                                       ' '.join(final_pass)))
+            return None
+        
+        if self.with_subs:
+            e = dict(os.environ)
+            e['VIDEO_FORMAT'] = 'NTSC'
+            with open(self.out_file, 'w') as f:
+                p1 = subprocess.Popen(final_pass+['-'], 
+                                      stdout=subprocess.PIPE)
+                p2 = subprocess.Popen(['spumux', '-s0', self.subs_xml], 
+                                      stdin=p1.stdout, stdout=f, env=e)
+                p1.stdout.close()
+                out,err = p2.communicate()
+        else:
+            subprocess.check_call(final_pass+[self.out_file])
         return self.out_file
                 
         
