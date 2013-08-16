@@ -190,7 +190,7 @@ class Encoder (object):
                         {'-g': '12'},
                         {'-bf': '2'},
                         {'-strict': '1'},
-                        {'-threads': '4'},
+                        #~ {'-threads': '4'},
                         {'-trellis': '1'},
                         {'-mbd': '2'},
                         {'-b:a': self.abitrate},
