@@ -21,7 +21,6 @@ import re
 import logging
 
 PROG_NAME = 'WTA_DVD'
-
 logger = logging.getLogger()
 logger.addHandler(logging.StreamHandler())
 logger.setLevel(logging.INFO)
@@ -45,6 +44,7 @@ def log_items(items=None, heading=None, lvl=logging.INFO, sep='=', sep_length=78
 def get_space_available(path):
     s = os.statvfs(path)
     return s.f_frsize * s.f_bavail
+
 
 class BG (object):
     def __init__(self, bg_img, button_imgs, 
@@ -386,7 +386,7 @@ class DVDMenu (object):
                  button_labels=None, 
                  out_dir=None, out_name=None,
                  label_line_height=0, label_lines=2, 
-                 label_padding=5, outer_padding=42, inner_padding=30, 
+                 label_padding=5, outer_padding=80, inner_padding=40, 
                  dvd_format='NTSC', dvd_menu_ar=4/3, dvd_menu_audio=None):
         width = 720
         if dvd_format == 'NTSC':
@@ -548,18 +548,18 @@ class DVD (object):
                  menu_label_line_height=18,
                  #~ menu=None, 
                  out_name=None, 
-                 out_dvd_dir=None, out_menu_dir=None, tmp_dir=None,
+                 out_dvd_dir=None, out_files_dir=None, tmp_dir=None,
                  dvd_format='NTSC', dvd_ar=16/9, dvd_menu_ar=None,
                  vbitrate=None, abitrate=196608, two_pass=True,
                  no_encode_v=False, no_encode_a=False, 
                  dvd_size_bits=37602983936,
                  separate_titles=False):
         self.uid = str(id(self))
-        self.in_vids = in_vids
-        self.in_dirs = in_dirs
+        #~ self.in_vids = in_vids
+        #~ self.in_dirs = in_dirs
         self.in_parent = in_parent
         self.one_dir = one_dir
-        self.in_srts = in_srts
+        #~ self.in_srts = in_srts
         self.with_subs = with_subs
         self.sub_lang = sub_lang
         self.audio_lang = audio_lang
@@ -568,14 +568,14 @@ class DVD (object):
         self.label_from_img = label_from_img
         self.label_from_dir = label_from_dir
         self.strip_label_year = strip_label_year
-        self.menu_bg = menu_bg
-        self.menu_imgs = menu_imgs
-        self.menu_labels = menu_labels
+        #~ self.menu_bg = menu_bg
+        #~ self.menu_imgs = menu_imgs
+        #~ self.menu_labels = menu_labels
         self.menu_label_line_height = menu_label_line_height
-        self.out_name = out_name
-        self.out_dvd_dir = out_dvd_dir
-        self.out_menu_dir = out_menu_dir
-        self.tmp_dir = tmp_dir
+        #~ self.out_name = out_name
+        #~ self.out_dvd_dir = out_dvd_dir
+        #~ self.out_files_dir = out_files_dir
+        #~ self.tmp_dir = tmp_dir
         self.dvd_format = dvd_format
         self.dvd_ar = dvd_ar
         if dvd_menu_ar is None:
@@ -591,12 +591,9 @@ class DVD (object):
         self.dvd_size_bytes = dvd_size_bits / 8
         self.separate_titles = separate_titles
         # setup paths
-        self.get_out_files(out_name, out_dvd_dir, out_menu_dir, tmp_dir)
-        self.get_in_files(in_vids, in_dirs, in_parent, one_dir,
-                          menu_bg, menu_imgs, menu_labels, 
-                          with_menu, with_menu_labels, label_from_img,
-                          label_from_dir, strip_label_year,
-                          with_subs, in_srts)
+        self.get_out_files(out_name, out_dvd_dir, out_files_dir, tmp_dir)
+        self.get_in_files(in_vids, in_dirs, menu_imgs, menu_labels, menu_bg,
+                          in_srts)
         self.get_menu()
         # prepare mpeg2 files
         self.calculate_vbitrate()
@@ -606,11 +603,9 @@ class DVD (object):
         # author DVD
         self.author_dvd()
     
-    def get_in_files(self, in_vids, in_dirs, in_parent, one_dir,
-                     menu_bg, menu_imgs, menu_labels, 
-                     with_menu, with_menu_labels, label_from_img, 
-                     label_from_dir, strip_label_year,
-                     with_subs, in_srts):
+    def get_in_files(self, in_vids, in_dirs,
+                     menu_imgs, menu_labels, menu_bg,
+                     in_srts):
         #~ vids = []
         #~ imgs = []
         #~ labels = []
@@ -620,48 +615,47 @@ class DVD (object):
         if not in_vids:
             in_vids = []
             if not in_dirs:
-                if not in_parent:
+                if not self.in_parent:
                     raise
-                if one_dir:
-                    in_dirs = [in_parent]
+                if self.one_dir:
+                    in_dirs = [self.in_parent]
                 else:
-                    in_dirs = sorted([os.path.join(in_parent, i) 
-                                   for i in os.listdir(in_parent)
-                                   if os.path.isdir(os.path.join(in_parent, i))])
+                    in_dirs = sorted([os.path.join(self.in_parent, i) 
+                                for i in os.listdir(self.in_parent) if
+                                os.path.isdir(os.path.join(self.in_parent, i))])
             for d in in_dirs:
                 for pat in vid_fmts:
                     found = sorted(glob.glob(os.path.join(d, pat)))
                     if found:
-                        if not one_dir:
+                        if not self.one_dir:
                             in_vids.extend(found[:1])
                             break
                         else:
                             in_vids.extend(found)
             in_vids = [i for i in in_vids if i is not None]
         
-        if with_menu:
+        if self.with_menu:
             if not menu_bg:
                 bg = CanvasImg(720, 480, 'gray')
-                self.menu_bg = bg.path
+                menu_bg = bg.path
             if not menu_imgs:
                 menu_imgs = []
                 #~ imgs = [self.get_img(i) for i in vids]
                 for i in in_vids:
                     img = self.get_matching_file(i, 
                                                  ['png', 'jpg', 'bmp', 'gif'], 
-                                                 ['poster', 'folder'],
-                                                 one_dir)
+                                                 ['poster', 'folder'])
                     menu_imgs.append(img)
             
-            if with_menu_labels:
+            if self.with_menu_labels:
                 if not menu_labels:
                     menu_labels = []
                     # get labels
-                    if label_from_img:
+                    if self.label_from_img:
                         label_list = menu_imgs
                     else:
                         label_list = in_vids
-                    if label_from_dir:
+                    if self.label_from_dir:
                         pt = 0
                     else:
                         pt = 1
@@ -670,28 +664,28 @@ class DVD (object):
                                      os.path.basename(os.path.split(i)[pt]))[0]
                               if i is not None else None 
                               for i in label_list]
-                    if strip_label_year:
+                    if self.strip_label_year:
                         pat = r'\s*\([-./\d]{2,12}\)\s*$'
                         menu_labels = [re.sub(pat, '', i) for i in menu_labels]
-        if with_subs:
+        if self.with_subs:
             if not in_srts:
                 in_srts = []
                 for i in in_vids:
-                    s = self.get_matching_file(i, ['*.srt'], [], one_dir)
+                    s = self.get_matching_file(i, ['*.srt'], [])
                     in_srts.append(s)
                 
         self.in_vids = in_vids
+        self.in_dirs = in_dirs
         self.menu_imgs = menu_imgs
         self.menu_labels = menu_labels
+        self.menu_bg = menu_bg
         self.in_srts = in_srts
         
         log_items(self.in_vids, 'Input Video Files')
         log_items(self.menu_imgs, 'Input Menu Images')
         log_items(self.menu_labels, 'Input Menu Labels')
-        #~ logger.info('{0}\nInput Video Files:\n{0}\n{1}'.format('='*78,
-                                                               #~ '\n'.join(self.in_vids)))
     
-    def get_matching_file(self, vid, fmts, names, one_dir):
+    def get_matching_file(self, vid, fmts, names):
         #~ img_fmts = ['png', 'jpg', 'bmp', 'gif']
         #~ img_names = ['poster', 'folder']
         dirname, basename = os.path.split(vid)
@@ -702,7 +696,7 @@ class DVD (object):
                 img = '.'.join([img_base, fmt])
                 if os.path.exists(img):
                     return img
-        if one_dir:
+        if self.one_dir:
             return None
         for fmt in fmts:
             found = sorted(glob.glob(os.path.join(dirname, '*.{}'.format(fmt))))
@@ -710,7 +704,7 @@ class DVD (object):
                 return found[0]
         return None
     
-    def get_out_files(self, out_name, out_dvd_dir, out_menu_dir, tmp_dir):
+    def get_out_files(self, out_name, out_dvd_dir, out_files_dir, tmp_dir):
         home = os.path.expandvars('$HOME')
         tmp = tempfile.gettempdir()
         home_free = get_space_available(home)
@@ -728,17 +722,17 @@ class DVD (object):
         # dvd_dir
         if not out_dvd_dir:
             out_dvd_dir = os.path.join(home, PROG_NAME, self.uid, 'DVD')
-        # menu_dir
-        if not out_menu_dir:
-            out_menu_dir = os.path.join(tmp, PROG_NAME, self.uid, 'Menu')
+        # files_dir
+        if not out_files_dir:
+            out_files_dir = os.path.join(tmp, PROG_NAME, self.uid, 'Menu')
         # make dirs if not present
-        for i in [out_dvd_dir, out_menu_dir, tmp_dir]:
+        for i in [out_dvd_dir, out_files_dir, tmp_dir]:
             if not os.path.exists(i):
                 os.makedirs(i)
         # check available space
         fs = {}
         dvd_size = self.dvd_size_bytes
-        for d,s in zip([out_dvd_dir, out_menu_dir, tmp_dir], 
+        for d,s in zip([out_dvd_dir, out_files_dir, tmp_dir], 
                        [dvd_size, dvd_size*.1, dvd_size]):
             dev = os.stat(d).st_dev
             if fs.get(dev):
@@ -748,20 +742,20 @@ class DVD (object):
         if min(fs.values()) < 1024*1024:
             raise
         # dvdauthor xml file
-        out_dvd_xml = os.path.join(tmp_dir, '{}_dvd.xml'.format(out_name))
-        out_log = os.path.join(out_menu_dir, '{}.log'.format(out_name))
+        out_dvd_xml = os.path.join(out_files_dir, '{}_dvd.xml'.format(out_name))
+        out_log = os.path.join(out_files_dir, '{}.log'.format(out_name))
         logger.addHandler(logging.FileHandler(out_log))
 
         
         self.out_name = out_name
         self.out_dvd_dir = out_dvd_dir
-        self.out_menu_dir = out_menu_dir
+        self.out_files_dir = out_files_dir
         self.tmp_dir = tmp_dir
         self.out_dvd_xml = out_dvd_xml
         self.out_log = out_log
         
-        logs = list(zip(['name', 'dvd_dir', 'menu_dir', 'tmp_dir'],
-                        [out_name, out_dvd_dir, out_menu_dir, tmp_dir]))
+        logs = list(zip(['name', 'dvd_dir', 'files_dir', 'tmp_dir'],
+                        [out_name, out_dvd_dir, out_files_dir, tmp_dir]))
         log_items(logs, 'Output Paths')
     
     def calculate_vbitrate(self):
@@ -839,7 +833,7 @@ class DVD (object):
         self.menu = DVDMenu(self.menu_bg, self.menu_imgs, 
                             button_labels=self.menu_labels, 
                             label_line_height=self.menu_label_line_height,
-                            out_dir=self.out_menu_dir,
+                            out_dir=self.out_files_dir,
                             out_name=self.out_name,
                             dvd_menu_ar=self.dvd_menu_ar)
     
@@ -905,7 +899,6 @@ class DVD (object):
         e['VIDEO_FORMAT'] = 'NTSC'
         cmd = ['dvdauthor', '-x', self.out_dvd_xml, '-o', self.out_dvd_dir]
         o = subprocess.check_output(cmd, env=e, universal_newlines=True)
-
 
 
 
