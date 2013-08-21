@@ -8,6 +8,7 @@
 
 from izdvd.image import Img, CanvasImg, TextImg
 from izdvd.encoder import Encoder
+from izdvd import utils
 import tempfile
 import subprocess
 import math
@@ -19,6 +20,8 @@ from lxml import etree
 import glob
 import re
 import logging
+import numbers
+import textwrap
 
 PROG_NAME = 'WTA_DVD'
 BLANK_MPG = '/home/will/Videos/dvdauthoring/00-menus/blank.mpg'
@@ -26,21 +29,184 @@ logger = logging.getLogger()
 logger.addHandler(logging.StreamHandler())
 logger.setLevel(logging.INFO)
 
-def log_items(items=None, heading=None, lvl=logging.INFO, sep='=', sep_length=78):
+def old_log_items():
+#def log_items(items=None, heading=None, lvl=logging.INFO, 
+              #sep='=', sep_length=78, max_width=78, s_indent=2, indent=0, 
+              #ljust=15):
+    #if heading:
+        #logger.log(lvl, sep*sep_length)
+        #logger.log(lvl, heading)
+        #logger.log(lvl, sep*sep_length)
+    #if items is False:
+        #return
+    #if items is None:
+        #items = ['<none>']
+    #if type(items) == str:
+        #items = [items]
+    #for i in items+['']:
+        #if i is None:
+            #i = ''
+        #if type(i) == tuple:
+            #item = i[0]
+            #val = i[1] if i[1] is not None else '<none>'
+            #item = (i[0]+':').ljust(ljust)
+            #i = item+val
+            ##~ if len(i) > max_width:
+                ##~ r = textwrap.fill(i[max_width:], width=max_width, 
+                             ##~ initial_indent=' '*s_indent, 
+                             ##~ subsequent_indent=' '*s_indent)
+                ##~ i = '\n'.join([i[:max_width], r])
+        #logger.log(lvl, i)
+
+#def log_items(items=None, heading=None, lvl=logging.INFO, 
+              #sep='=', sep_length=78, max_width=78, s_indent=4, indent=0, 
+              #ljust=15):
+    #if heading:
+        #logger.log(lvl, sep*sep_length)
+        #logger.log(lvl, heading)
+        #logger.log(lvl, sep*sep_length)
+    #if items is False:
+        #return
+    #if items is None:
+        #items = ['<none>']
+    #if type(items) == str:
+        #items = [items]
+    #for i in items+['']:
+        #if i is None:
+            #i = ''
+        #if type(i) == tuple:
+            #item = i[0]
+            #val = i[1] if i[1] is not None else '<none>'
+            #item = i[0].ljust(ljust-3) + ' : '
+            #item = ' '*indent + item
+            #msg = ''.join([item, val])
+            #fl = msg[:max_width].rstrip()
+            #rl = msg[max_width:].strip()
+            #rl = [rl]
+            #if len(i) > 2:
+                #rl.extend([j if j is not None else '<none>' for j in i[2:]])
+            #if rl:
+                #rl_wrapped = []
+                #for r in rl:
+                    #rlw = textwrap.fill(r, width=max_width, 
+                                       #initial_indent=' '*(ljust+s_indent), 
+                                       #subsequent_indent=' '*(ljust+s_indent))
+                    #rl_wrapped.append(r)
+                #rl = '\n'.join(rl_wrapped)
+                #i = '\n'.join([fl, rl])
+            #else:
+                #i = fl
+        #logger.log(lvl, i)
+        ##if type(i) == tuple:
+            ##item = i[0]
+            ##val = i[1] if i[1] is not None else '<none>'
+            ##item = i[0].ljust(ljust)
+            ##item = ' '*indent + item + ' : '
+            ##msg = ''.join([item, val])
+            ##fl = msg[:max_width].rstrip()
+            ##rl = msg[max_width:].strip()
+            ##if rl:
+                ##rl = textwrap.fill(rl, width=max_width, 
+                                   ##initial_indent=' '*(ljust+s_indent+3), 
+                                   ##subsequent_indent=' '*(ljust+s_indent+3))
+                ##i = '\n'.join([fl, rl])
+            ##else:
+                ##i = fl
+        ##logger.log(lvl, i)
+        ##~ if type(i) == tuple:
+            ##~ item = i[0]
+            ##~ val = i[1] if i[1] is not None else '<none>'
+            ##~ item = (i[0]+' : ').ljust(ljust)
+            ##~ item = ' '*indent + item
+            ##~ msg = ''.join([item, val])
+            ##~ fl = msg[:max_width]
+            ##~ rl = msg[max_width:]
+            ##~ if rl:
+                ##~ rl = textwrap.fill(rl, width=max_width, 
+                                   ##~ initial_indent=' '*(ljust+indent), 
+                                   ##~ subsequent_indent=' '*(ljust+s_indent))
+                ##~ i = '\n'.join([fl, rl])
+            ##~ else:
+                ##~ i = fl
+        ##~ logger.log(lvl, i)
+    pass
+
+def log_items(items=None, heading=None, lvl=logging.INFO, 
+              sep='=', sep_length=78, max_width=78, s_indent=4, indent=0, 
+              col_width=12, lines_before=0, lines_after=0, 
+              sep_pre=None, sep_post=None):
+    for l in range(lines_before):
+        logger.log(lvl, '')
     if heading:
         logger.log(lvl, sep*sep_length)
         logger.log(lvl, heading)
         logger.log(lvl, sep*sep_length)
+    if sep_pre:
+        logger.log(lvl, sep_pre*sep_length)
+        
     if items is False:
         return
     if items is None:
         items = ['<none>']
+    if isinstance(items, numbers.Number):
+        items = str(items)
     if type(items) == str:
         items = [items]
-    for i in items+['']:
+    for i in items:
+        if i is None:
+            i = ''
         if type(i) == tuple:
-            i = ': '.join(i)
-        logger.log(lvl, i)
+            lines = []
+            item = i[0]
+            val = i[1] if i[1] is not None else '<none>'
+            if isinstance(val, numbers.Number):
+                val = str(val)
+            if type(val) == str:
+                val = [val]
+            for n,v in enumerate(val):
+                if n == 0:
+                    c1 = item+' : '
+                    sep = ': '
+                else:
+                    c1 = ''
+                    sep = '  '
+                msg = '{c1:>{width}}{c2}'.format(c1=c1, c2=v,
+                                                width=col_width+3)
+                lines.append(msg)
+        else:
+            lines = [i]
+        for l in lines:
+            if indent:
+                l = textwrap.indent(l, ' '*indent)
+            logger.log(lvl, l)
+    if sep_post:
+        logger.log(lvl, sep_post*sep_length)
+    for l in range(lines_after):
+        logger.log(lvl, '')
+            
+            
+            #item = i[0]
+            #val = i[1] if i[1] is not None else '<none>'
+            #item = i[0].ljust(ljust-3) + ' : '
+            #item = ' '*indent + item
+            #msg = ''.join([item, val])
+            #fl = msg[:max_width].rstrip()
+            #rl = msg[max_width:].strip()
+            #rl = [rl]
+            #if len(i) > 2:
+                #rl.extend([j if j is not None else '<none>' for j in i[2:]])
+            #if rl:
+                #rl_wrapped = []
+                #for r in rl:
+                    #rlw = textwrap.fill(r, width=max_width, 
+                                       #initial_indent=' '*(ljust+s_indent), 
+                                       #subsequent_indent=' '*(ljust+s_indent))
+                    #rl_wrapped.append(r)
+                #rl = '\n'.join(rl_wrapped)
+                #i = '\n'.join([fl, rl])
+            #else:
+                #i = fl
+        #logger.log(lvl, i)
 
 def get_space_available(path):
     s = os.statvfs(path)
@@ -668,6 +834,9 @@ class DVD (object):
                           in_srts)
         # get information about the video files
         self.get_media_info()
+        self.log_output_info()
+        self.log_input_info()
+        self.log_titlesets()
         self.calculate_vbitrate()
         # make menu
         self.get_menu()
@@ -726,10 +895,6 @@ class DVD (object):
         self.tmp_dir = tmp_dir
         self.out_dvd_xml = out_dvd_xml
         self.out_log = out_log
-        
-        logs = list(zip(['name', 'dvd_dir', 'files_dir', 'tmp_dir'],
-                        [out_name, out_dvd_dir, out_files_dir, tmp_dir]))
-        log_items(logs, 'Output Paths')
     
     def get_in_files(self, in_vids, in_dirs,
                      menu_imgs, menu_labels, menu_bg,
@@ -771,44 +936,75 @@ class DVD (object):
                                                  ['poster', 'folder'])
                     menu_imgs.append(img)
             
-            if self.with_menu_labels:
-                if not menu_labels:
-                    menu_labels = []
-                    # get labels
-                    if self.label_from_img:
-                        label_list = menu_imgs
-                    else:
-                        label_list = in_vids
-                    if self.label_from_dir:
-                        pt = 0
-                    else:
-                        pt = 1
+            #~ if self.with_menu_labels:
+                #~ if not menu_labels:
+                    #~ menu_labels = []
+                    #~ # get labels
+                    #~ if self.label_from_img:
+                        #~ label_list = menu_imgs
+                    #~ else:
+                        #~ label_list = in_vids
+                    #~ if self.label_from_dir:
+                        #~ pt = 0
+                    #~ else:
+                        #~ pt = 1
+                    #~ 
+                    #~ menu_labels = [os.path.splitext(
+                                     #~ os.path.basename(os.path.split(i)[pt]))[0]
+                              #~ if i is not None else None 
+                              #~ for i in label_list]
+                    #~ if self.strip_label_year:
+                        #~ pat = r'\s*\([-./\d]{2,12}\)\s*$'
+                        #~ menu_labels = [re.sub(pat, '', i) for i in menu_labels]
+
+        if not menu_labels:
+            menu_labels = []
+            # get labels
+            if self.label_from_img:
+                label_list = menu_imgs
+            else:
+                label_list = in_vids
+            if self.label_from_dir:
+                pt = 0
+            else:
+                pt = 1
+            
+            menu_labels = [os.path.splitext(
+                             os.path.basename(os.path.split(i)[pt]))[0]
+                      if i is not None else None 
+                      for i in label_list]
+            vid_labels = menu_labels
+            if self.with_menu and self.with_menu_labels:
+                if self.strip_label_year:
+                    pat = r'\s*\([-./\d]{2,12}\)\s*$'
+                    menu_labels = [re.sub(pat, '', i) for i in menu_labels]
+            else:
+                menu_labels = None
                     
-                    menu_labels = [os.path.splitext(
-                                     os.path.basename(os.path.split(i)[pt]))[0]
-                              if i is not None else None 
-                              for i in label_list]
-                    if self.strip_label_year:
-                        pat = r'\s*\([-./\d]{2,12}\)\s*$'
-                        menu_labels = [re.sub(pat, '', i) for i in menu_labels]
+                
         if self.with_subs:
             if not in_srts:
                 in_srts = []
                 for i in in_vids:
                     s = self.get_matching_file(i, ['srt'], [])
                     in_srts.append(s)
-                
+        
         self.in_vids = in_vids
         self.in_dirs = in_dirs
         self.menu_imgs = menu_imgs
         self.menu_labels = menu_labels
+        self.vid_labels = vid_labels
         self.menu_bg = menu_bg
         self.in_srts = in_srts
         
-        log_items(self.in_vids, 'Input Video Files')
-        log_items(self.in_srts, 'Input Subtitle Files')
-        log_items(self.menu_imgs, 'Input Menu Images')
-        log_items(self.menu_labels, 'Input Menu Labels')
+        for i in ['menu_imgs', 'menu_labels', 'in_srts']:
+            if getattr(self, i) is None:
+                setattr(self, i, [None for v in self.in_vids])
+        
+        #~ log_items(self.in_vids, 'Input Video Files')
+        #~ log_items(self.in_srts, 'Input Subtitle Files')
+        #~ log_items(self.menu_imgs, 'Input Menu Images')
+        #~ log_items(self.menu_labels, 'Input Menu Labels')
     
     def get_matching_file(self, vid, fmts, names):
         dirname, basename = os.path.split(vid)
@@ -847,7 +1043,10 @@ class DVD (object):
                  'ar': ar,
                  'dar': dar,
                  'duration': d_s,
-                 'mpeg': '' }
+                 'mpeg': '',
+                 'img': self.menu_imgs[n],
+                 'menu_label': self.menu_labels[n],
+                 'vid_label': self.vid_labels[n], }
             vids.append(v)
             durations.append(d_s)
         self.vids = vids
@@ -855,7 +1054,77 @@ class DVD (object):
         #~ self.titlesets = [i for i in titlesets if i['vids']]
         self.durations = durations
         self.duration_total = sum(durations)
+
+    def log_output_info(self):
+        logs = list(zip(['Name', 'DVD', 'Files', 'tmp'],
+                        [self.out_name, self.out_dvd_dir, self.out_files_dir, 
+                         self.tmp_dir]))
+        log_items(logs, 'Output Paths')
+
+    def log_input_info(self):
+        log_items(heading='Video Information', items=[], lines_before=1)
+        for n,i in enumerate(self.vids):
+            dirs = [i['in'], i['img'], i['srt']]
+            dirs = [i for i in dirs if i is not None]
+            commonprefix = utils.get_commonprefix(dirs)
+            if len(commonprefix) > 1:
+                in_dir = commonprefix
+                in_vid = os.path.relpath(i['in'], commonprefix)
+                in_img = os.path.relpath(i['img'], commonprefix)
+                in_srt = os.path.relpath(i['srt'], commonprefix)
+            else:
+                in_dir = None
+                in_vid = i['in']
+                in_img = i['img']
+                in_srt = i['srt']
+            name = os.path.basename(i['in'])
+            duration = self.get_duration_string(i['duration'])
+            #~ dur = re.sub(r'(\.\d)\d*', r'\1', 
+                         #~ str(timedelta(seconds=i['duration'])))
+            log_data = list(zip(['In file', 'Image', 'Label', 'Subtitle', 
+                             'Aspect Ratio', 'Duration'], 
+                            [in_vid, in_img, i['menu_label'], in_srt, 
+                             '{:.2f}'.format(i['ar']), duration]))
+            if in_dir:
+                log_data.append(('In Dir', in_dir))
+            log_items('#{}: {}:'.format(n+1, i['vid_label']), lines_before=1,
+                      sep_pre='-', sep_post='-')
+            log_items(log_data, col_width=12, indent=4)# sep_post='-')
     
+    def log_titlesets(self):
+        log_items(heading='Titlesets', items=[], lines_before=1)
+        for n,i in enumerate(self.titlesets):
+            ar = i['ar']
+            seconds = sum([d['duration'] for d in i['vids']])
+            duration = self.get_duration_string(seconds)
+            #~ h,m,s = str(timedelta(seconds=seconds)).split(':')
+            #~ duration = '{:02.0f}:{:02.0f}:{:02.0f}'.format(float(h), float(m), 
+                                                           #~ float(s))
+            log_data = list(zip(['Aspect Ratio', 'Duration', 'Titles'], 
+                                [ar, duration, 
+                                 '{} of {}'.format(len(i['vids']),
+                                                   len(self.vids))]))
+            log_data.append(('Videos', [v['vid_label'] for v in i['vids']]))
+            log_items('Titleset #{} of {}'.format(n+1, len(self.titlesets)),
+                      lines_before=1, sep_pre='-', sep_post='-')
+            log_items(log_data, col_width=12, indent=4)
+    
+    def prompt_user(self):
+        choices = ['1: Continue',
+                             '2: Play a video',
+                             '3: List contents of a directory']
+        responses = [n+1 for n,i in enumerate(choices)]
+        prompt = 'Make a selection: [{}]'.format('/'.join([str(i) for i in responses]))
+        #~ prompt = 'Make a selection: [{}]'.format('/'.join(responses))
+        prompt = '\n'.join(choices + [prompt])
+        r = input('Continue? [Y/n]: ')
+    
+    def get_duration_string(self, seconds):
+        h,m,s = str(timedelta(seconds=seconds)).split(':')
+        duration = '{:02.0f}:{:02.0f}:{:02.0f}'.format(float(h), float(m), 
+                                                       float(s))
+        return duration
+
     def split_titlesets(self):
         titlesets = [{'ar': 0, 'vids': [] }]
         for n,i in enumerate(self.vids):
@@ -911,6 +1180,9 @@ class DVD (object):
     
     def get_audio_bitrate(self):
         return self.abitrate
+    
+    def log_dvd_info(self):
+        pass
     
     def get_menu(self):
         log_items(heading='Making DVD Menu...', items=False)
