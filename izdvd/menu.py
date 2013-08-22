@@ -9,6 +9,8 @@
 from izdvd.image import Img, CanvasImg, TextImg
 from izdvd.encoder import Encoder
 from izdvd import utils
+from izdvd import user_input
+import sys
 import tempfile
 import subprocess
 import math
@@ -25,6 +27,8 @@ import textwrap
 
 PROG_NAME = 'WTA_DVD'
 BLANK_MPG = '/home/will/Videos/dvdauthoring/00-menus/blank.mpg'
+VIDEO_PLAYER = 'mplayer'
+IMAGE_VIEWER = 'display'
 logger = logging.getLogger()
 logger.addHandler(logging.StreamHandler())
 logger.setLevel(logging.INFO)
@@ -659,20 +663,32 @@ class DVDMenu (object):
 
 class DVD (object):
     def __init__(self, 
-                 in_vids=None, in_dirs=None, in_parent=None, one_dir=False,
-                 in_srts=None, with_subs=False, sub_lang='en', audio_lang='en',
-                 with_menu=True, with_menu_labels=True, label_from_img=False,
+                 # input 
+                 in_vids=None, in_dirs=None, in_parent=None, in_srts=None, 
+                 menu_imgs=None, menu_labels=None, menu_bg=None, 
+                 # input options
+                 one_dir=False,
+                 label_from_img=False,
                  label_from_dir=True, strip_label_year=True,
-                 menu_bg=None, menu_imgs=None, menu_labels=None,
-                 menu_label_line_height=18,
+                 no_encode_v=False, no_encode_a=False, 
+                 # output locations
                  out_name=None, 
                  out_dvd_dir=None, out_files_dir=None, tmp_dir=None,
-                 dvd_format='NTSC', dvd_ar=None, dvd_menu_ar=None,
-                 vbitrate=None, abitrate=196608, two_pass=True,
-                 no_encode_v=False, no_encode_a=False, 
+                 # output options
+                 with_menu=True, menu_only=False,
+                 author_dvd=True,
                  dvd_size_bits=37602983936,
+                 # dvd options
+                 audio_lang='en',
+                 with_subs=False, sub_lang='en', 
+                 dvd_format='NTSC', dvd_ar=None, 
+                 vbitrate=None, abitrate=196608, two_pass=True,
                  separate_titles=True, 
                  separate_titlesets=False, ar_threshold=1.38,
+                 # menu options
+                 dvd_menu_ar=None,
+                 with_menu_labels=True, 
+                 menu_label_line_height=18,
                  no_loop_menu=True):
         self.uid = str(id(self))
         self.in_parent = in_parent
@@ -703,6 +719,8 @@ class DVD (object):
         self.separate_titlesets = separate_titlesets
         self.ar_threshold = ar_threshold
         self.no_loop_menu = no_loop_menu
+        self.menu_only = menu_only
+        self.author_dvd = author_dvd
         # setup paths
         self.get_out_files(out_name, out_dvd_dir, out_files_dir, tmp_dir)
         self.get_in_files(in_vids, in_dirs, menu_imgs, menu_labels, menu_bg,
@@ -712,14 +730,21 @@ class DVD (object):
         self.log_output_info()
         self.log_input_info()
         self.log_titlesets()
+        self.prompt_input_output()
         self.calculate_vbitrate()
         # make menu
-        self.get_menu()
+        if self.with_menu or self.menu_only:
+            self.get_menu()
+        if self.menu_only:
+            return
+        self.log_menu_info()
+        self.prompt_menu()
         # prepare mpeg2 files
         self.encode_video()
         self.create_dvd_xml()
         # author DVD
-        self.author_dvd()
+        if self.author_dvd:
+            self.author_dvd()
     
     def get_out_files(self, out_name, out_dvd_dir, out_files_dir, tmp_dir):
         home = os.path.expandvars('$HOME')
@@ -934,7 +959,7 @@ class DVD (object):
                              '{:.2f}'.format(i['ar']), duration]))
             if in_dir:
                 log_data.append(('In Dir', in_dir))
-            log_items('#{}: {}:'.format(n+1, i['vid_label']), lines_before=1,
+            log_items('#{}: {}:'.format(n+1, i['vid_label']), lines_before=0,
                       sep_pre='-', sep_post='-')
             log_items(log_data, col_width=12, indent=4)# sep_post='-')
     
@@ -953,15 +978,53 @@ class DVD (object):
                       lines_before=1, sep_pre='-', sep_post='-')
             log_items(log_data, col_width=12, indent=4)
     
-    def prompt_user(self):
-        choices = ['1: Continue',
-                             '2: Play a video',
-                             '3: List contents of a directory']
-        responses = [n+1 for n,i in enumerate(choices)]
-        prompt = 'Make a selection: [{}]'.format('/'.join([str(i) for i in responses]))
-        #~ prompt = 'Make a selection: [{}]'.format('/'.join(responses))
-        prompt = '\n'.join(choices + [prompt])
-        r = input('Continue? [Y/n]: ')
+    def log_menu_info(self):
+        if self.dvd_menu_ar == 16/9:
+            ar = '16:9'
+        else:
+            ar = '4:3'
+        log_data = list(zip(['Aspect Ratio', 'Image', 'Video'],
+                            [ar, self.menu.path_bg_img, 
+                             self.menu.path_menu_mpg]))
+        log_items(heading='Menu', items=log_data, lines_before=1)
+    
+    def prompt_input_output(self):
+        choices = ['Continue',
+                   'Play a video',
+                   'List contents of a directory']
+        while True:
+            resp = user_input.prompt_user_list(choices)
+            if resp is False:
+                sys.exit()
+            elif resp == 0:
+                break
+            vids = [i['vid_label'] for i in self.vids]
+            path = user_input.prompt_user_list(vids, header=choices[resp])
+            path = self.vids[path]['in']
+            if resp == 1:
+                o = subprocess.check_call([VIDEO_PLAYER, path])
+            elif resp == 2:
+                o = subprocess.check_output(['ls', '-lhaF', '--color=auto', 
+                                             os.path.dirname(path)],
+                                            universal_newlines=True)
+                print('\n{}\n\n{}'.format(path, o.strip()))
+
+    def prompt_menu(self):
+        choices = ['Continue',
+                   'Display Menu Image',
+                   'Play Menu Video']
+        while True:
+            resp = user_input.prompt_user_list(choices)
+            if resp is False:
+                sys.exit()
+            elif resp == 0:
+                break
+            if resp == 1:
+                o = subprocess.check_call([IMAGE_VIEWER, self.menu.path_bg_img])
+            elif resp == 2:
+                o = subprocess.check_call([VIDEO_PLAYER, 
+                                           self.menu.path_menu_mpg])
+                
     
     def get_duration_string(self, seconds):
         h,m,s = str(timedelta(seconds=seconds)).split(':')
