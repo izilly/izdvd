@@ -34,9 +34,13 @@ class Encoder (object):
         self.with_subs = with_subs
         if in_srt:
             self.with_subs = True
+        ######
         if get_args:
             self.get_options()
+        self.setup_in_files()
         self.setup_out_files()
+        if self.in_files_cat:
+            self.create_cat_file()
         self.get_size()
         self.calculate_scaling()
         self.calculate_padding()
@@ -46,6 +50,18 @@ class Encoder (object):
         self.passnum = '1'
         
         #~ self.encode()
+    
+    def setup_in_files(self):
+        self.in_files_cat = None
+        if type(self.in_file) is list:
+            if len(self.in_file) > 1:
+                self.in_files_cat = self.in_file
+            self.in_file = self.in_file[0]
+    
+    def create_cat_file(self):
+        lines = '\n'.join(["file '{}'".format(i) for i in self.in_files_cat])
+        with open(self.cat_file, 'w') as f:
+            f.write(lines)
     
     def setup_out_files(self):
         self.cwd = os.getcwd()
@@ -57,6 +73,7 @@ class Encoder (object):
             self.out_file = os.path.join(self.out_dir, self.in_filename+'.mpg')
             self.subs_srt = os.path.join(self.out_dir, self.in_filename+'.subs.utf8.srt')
             self.subs_xml = os.path.join(self.out_dir, self.in_filename+'.subs.xml')
+            self.cat_file = os.path.join(self.out_dir, self.in_filename+'.cat.txt')
         else:
             self.out_dir = os.path.abspath(os.path.split(self.out_file)[0])
             self.log_file = os.path.splitext(self.out_file)[0] + '.log'
@@ -177,11 +194,26 @@ class Encoder (object):
         tree = etree.ElementTree(subpictures)
         tree.write(self.subs_xml, encoding='UTF-8', pretty_print=True)
     
-    def build_cmd(self, passnum):
+    def build_cmd(self, passnum, args_only=False):
         passnum = str(passnum)
-        enc_opts = [{'-i': self.in_file},
-                        {'-f': 'dvd'},
-                        {'-target': 'ntsc-dvd'},
+        #~ enc_opts = [{'-i': self.in_file},
+                        #~ {'-f': 'dvd'},
+                        #~ {'-target': 'ntsc-dvd'},
+                        #~ {'-aspect': self.aspect},
+                        #~ {'-vf': self.vf},
+                        #~ {'-s': '720x480'},
+                        #~ {'-b:v': self.vbitrate},
+                        #~ {'-sn': None},
+                        #~ {'-g': '12'},
+                        #~ {'-bf': '2'},
+                        #~ {'-strict': '1'},
+                        #~ #{'-threads': '4'},
+                        #~ {'-trellis': '1'},
+                        #~ {'-mbd': '2'},
+                        #~ {'-b:a': self.abitrate},
+                        #~ {'-acodec': 'ac3'},
+                        #~ {'-ac': '2'}]
+        enc_opts = [{'-target': 'ntsc-dvd'},
                         {'-aspect': self.aspect},
                         {'-vf': self.vf},
                         {'-s': '720x480'},
@@ -196,7 +228,16 @@ class Encoder (object):
                         {'-b:a': self.abitrate},
                         {'-acodec': 'ac3'},
                         {'-ac': '2'}]
-        args = ['ffmpeg']
+        if not args_only:
+            args = ['ffmpeg']
+            #~ args.extend = ['-i', in_file]
+            if self.in_files_cat:
+                args.extend(['-f', 'concat', '-i', self.cat_file])
+                #~ in_file = self.cat_file
+            else:
+                args.extend(['-i', self.in_file])
+        else:
+            args = []
         [args.extend([str(k), str(v)]) if v is not None else args.extend([str(k)]) 
          for i in enc_opts for (k,v) in i.items()]
         
@@ -207,10 +248,11 @@ class Encoder (object):
     def encode(self):
         if self.two_pass:
             first_pass = self.build_cmd(1) + ['-y', '/dev/null']
+            print('First pass: \n{}\n'.format(' '.join(first_pass)))
             if not self.dry_run:
                 subprocess.check_call(first_pass)
-            else:
-                print('First pass: \n{}\n'.format(' '.join(first_pass)))
+            #~ else:
+                #~ print('First pass: \n{}\n'.format(' '.join(first_pass)))
         
         final_pass = self.build_cmd(2)
         if self.dry_run:
@@ -221,6 +263,10 @@ class Encoder (object):
         if self.with_subs:
             e = dict(os.environ)
             e['VIDEO_FORMAT'] = 'NTSC'
+            fp = final_pass+['-']
+            spu = ['spumux', '-s0', self.subs_xml]
+            cmd_str = '{} | {}'.format(' '.join(fp), ' '.join(spu))
+            print('\n{}\n\nSecond pass: \n{}\n'.format('='*78 , cmd_str))
             with open(self.out_file, 'w') as f:
                 p1 = subprocess.Popen(final_pass+['-'], 
                                       stdout=subprocess.PIPE)
@@ -229,6 +275,8 @@ class Encoder (object):
                 p1.stdout.close()
                 out,err = p2.communicate()
         else:
+            print('\n{}\n\nSecond pass: \n{}\n'.format('='*78 , 
+                                                       ' '.join(final_pass+[self.out_file])))
             subprocess.check_call(final_pass+[self.out_file])
         return self.out_file
                 

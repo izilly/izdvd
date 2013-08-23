@@ -29,10 +29,15 @@ PROG_NAME = 'WTA_DVD'
 BLANK_MPG = '/home/will/Videos/dvdauthoring/00-menus/blank.mpg'
 VIDEO_PLAYER = 'mplayer'
 IMAGE_VIEWER = 'display'
+
+RE_PARTS_SEP = r'[ _.-]'
+RE_VOL_PREFIXES = r'cd|dvd|part|pt|disk|disc|d'
+RE_VOL_NUMS = r'[0-9]'
+RE_VOL_LETTERS = r'[a-d]'
+
 logger = logging.getLogger()
 logger.addHandler(logging.StreamHandler())
 logger.setLevel(logging.INFO)
-
 
 def log_items(items=None, heading=None, lvl=logging.INFO, 
               sep='=', sep_length=78, max_width=78, s_indent=4, indent=0, 
@@ -671,12 +676,13 @@ class DVD (object):
                  label_from_img=False,
                  label_from_dir=True, strip_label_year=True,
                  no_encode_v=False, no_encode_a=False, 
+                 unstack_vids=None,
                  # output locations
                  out_name=None, 
                  out_dvd_dir=None, out_files_dir=None, tmp_dir=None,
                  # output options
                  with_menu=True, menu_only=False,
-                 author_dvd=True,
+                 with_author_dvd=True,
                  dvd_size_bits=37602983936,
                  # dvd options
                  audio_lang='en',
@@ -720,7 +726,8 @@ class DVD (object):
         self.ar_threshold = ar_threshold
         self.no_loop_menu = no_loop_menu
         self.menu_only = menu_only
-        self.author_dvd = author_dvd
+        self.with_author_dvd = with_author_dvd
+        self.unstack_vids = unstack_vids
         # setup paths
         self.get_out_files(out_name, out_dvd_dir, out_files_dir, tmp_dir)
         self.get_in_files(in_vids, in_dirs, menu_imgs, menu_labels, menu_bg,
@@ -743,7 +750,7 @@ class DVD (object):
         self.encode_video()
         self.create_dvd_xml()
         # author DVD
-        if self.author_dvd:
+        if self.with_author_dvd:
             self.author_dvd()
     
     def get_out_files(self, out_name, out_dvd_dir, out_files_dir, tmp_dir):
@@ -803,6 +810,8 @@ class DVD (object):
         img_fmts = ['*.png', '*.jpg', '*.bmp', '*.gif']
         sub_fmts = ['*.srt']
         if not in_vids:
+            if self.unstack_vids is None:
+                self.unstack_vids = True
             in_vids = []
             if not in_dirs:
                 if not self.in_parent:
@@ -823,6 +832,9 @@ class DVD (object):
                         else:
                             in_vids.extend(found)
             in_vids = [i for i in in_vids if i is not None]
+        else:
+            if self.unstack_vids is None:
+                self.unstack_vids = False
         
         if self.with_menu:
             if not menu_bg:
@@ -859,14 +871,14 @@ class DVD (object):
                     menu_labels = [re.sub(pat, '', i) for i in menu_labels]
             else:
                 menu_labels = None
-                    
                 
         if self.with_subs:
             if not in_srts:
                 in_srts = []
                 for i in in_vids:
                     s = self.get_matching_file(i, ['srt'], [])
-                    in_srts.append(s)
+                    if s not in in_srts:
+                        in_srts.append(s)
         
         self.in_vids = in_vids
         self.in_dirs = in_dirs
@@ -899,36 +911,95 @@ class DVD (object):
     
     def get_media_info(self):
         vids = []
-        durations = []
+        fmt = ('--output=Video;%Duration%|^|%Width%|^|%Height%|^|'
+               '%PixelAspectRatio%|^|%DisplayAspectRatio%')
         for n,i in enumerate(self.in_vids):
-            fmt = ('--output=Video;%Duration%|^|%Width%|^|%Height%|^|'
-                   '%PixelAspectRatio%|^|%DisplayAspectRatio%')
-            mi = subprocess.check_output(['mediainfo', fmt, i], 
-                                           universal_newlines=True).strip()
-            d_ms,w,h,par,dar = mi.split('|^|')
-            d_s = int(d_ms) / 1000
-            w = int(w)
-            h = int(h)
-            par = float(par)
-            dar = float(dar)
-            ar = (w/h) * par
-            v = {'in': i, 
-                 'srt': self.in_srts[n],
-                 'ar': ar,
-                 'dar': dar,
-                 'duration': d_s,
-                 'mpeg': '',
-                 'img': self.menu_imgs[n],
-                 'menu_label': self.menu_labels[n],
-                 'vid_label': self.vid_labels[n], }
+            if self.unstack_vids:
+                stacked = self.get_stacked_vids(i)
+                if self.with_subs:
+                    subs = [self.in_srts[n]]
+                    addl_subs = [self.get_matching_file(i, ['srt'], []) 
+                                 for i in stacked[1:]]
+                    for sb in addl_subs:
+                        if sb not in subs:
+                            subs.append(sb)
+            else:
+                stacked = [i]
+                if self.with_subs:
+                    subs = [self.in_srts[n]]
+            v = {}
+            duration = 0
+            for path in stacked:
+                mi = subprocess.check_output(['mediainfo', fmt, path], 
+                                               universal_newlines=True).strip()
+                d_ms,w,h,par,dar = mi.split('|^|')
+                d_s = int(d_ms) / 1000
+                duration += d_s
+                width = int(w)
+                height = int(h)
+                par = float(par)
+                dar = float(dar)
+                ar = (width/height) * par
+                nv = {'ar': ar,
+                      'dar': dar,
+                      'width': width,
+                      'height': height}
+                if v:
+                    if nv != v:
+                        raise
+                else:
+                    v.update(nv)
+            v['in'] = stacked
+            v['mpeg'] = ''
+            #~ v['srt'] = self.in_srts[n]
+            v['srt'] = subs
+            v['duration'] = duration
+            v['img'] = self.menu_imgs[n]
+            v['menu_label'] = self.menu_labels[n]
+            v['vid_label'] = self.vid_labels[n]
             vids.append(v)
-            durations.append(d_s)
         self.vids = vids
         self.titlesets = self.split_titlesets()
-        #~ self.titlesets = [i for i in titlesets if i['vids']]
-        self.durations = durations
-        self.duration_total = sum(durations)
-
+        self.durations = [i['duration'] for i in vids]
+        self.duration_total = sum(self.durations)
+    
+    def get_stacked_vids(self, vid_path):
+        vid_dir, vid_name = os.path.split(vid_path)
+        paths = [i for i in os.listdir(vid_dir) if i != vid_name]
+        regex = self.get_stacking_regex()
+        matches = []
+        for r in regex:
+            if not matches:
+                vm = re.search(r, vid_name, re.I)
+                if vm:
+                    ve = vm.expand(r'\1\3\4')
+                    for p in paths:
+                        pm = re.search(r, p, re.I)
+                        if pm:
+                            pe = pm.expand(r'\1\3\4')
+                            if pe == ve:
+                                matches.append(os.path.join(vid_dir, p))
+        return [vid_path] + matches
+    
+    def get_stacking_regex(self):
+        re_tem = (r'^(.*?)'     # title
+                  r'{}'         # volume
+                  r'(.*?)'      # ignore
+                  r'(\.[^.]+)'  # extension
+                  r'$')
+        re_tem_labeled_nums = r'({0}*(?:{1}){0}*{2}+)'.format(RE_PARTS_SEP, 
+                                                              RE_VOL_PREFIXES, 
+                                                              RE_VOL_NUMS)
+        re_tem_labeled_letters = r'({0}*(?:{1}){0}*{2})'.format(RE_PARTS_SEP, 
+                                                                RE_VOL_PREFIXES,
+                                                                RE_VOL_LETTERS)
+        re_tem_bare_letters = r'({0}*{1})'.format(RE_PARTS_SEP, RE_VOL_LETTERS)
+        re_stacked_labeled_nums = re_tem.format(re_tem_labeled_nums)
+        re_stacked_labeled_letters = re_tem.format(re_tem_labeled_letters)
+        re_stacked_bare_letters = re_tem.format(re_tem_bare_letters)
+        return [re_stacked_labeled_nums, re_stacked_labeled_letters, 
+                re_stacked_bare_letters]
+    
     def log_output_info(self):
         logs = list(zip(['Name', 'DVD', 'Files', 'tmp'],
                         [self.out_name, self.out_dvd_dir, self.out_files_dir, 
@@ -938,24 +1009,31 @@ class DVD (object):
     def log_input_info(self):
         log_items(heading='Video Information', items=[], lines_before=1)
         for n,i in enumerate(self.vids):
-            dirs = [i['in'], i['img'], i['srt']]
+            #~ dirs = [i['in'], i['img'], i['srt']]
+            dirs = [p for p in i['in']]
+            dirs.extend(i['srt'])
+            dirs.append(i['img'])
+            #~ dirs.extend([i['img'], i['srt']])
             dirs = [i for i in dirs if i is not None]
             commonprefix = utils.get_commonprefix(dirs)
             if len(commonprefix) > 1:
                 in_dir = commonprefix
-                in_vid = os.path.relpath(i['in'], commonprefix)
+                #~ in_vid = os.path.relpath(i['in'], commonprefix)
+                in_vids = [os.path.relpath(v, commonprefix) for v in i['in']]
+                in_srt = [os.path.relpath(v, commonprefix) for v in i['srt']]
                 in_img = os.path.relpath(i['img'], commonprefix)
-                in_srt = os.path.relpath(i['srt'], commonprefix)
+                #~ in_srt = os.path.relpath(i['srt'], commonprefix)
             else:
                 in_dir = None
-                in_vid = i['in']
+                #~ in_vid = i['in']
+                in_vids = [v for v in i['in']]
                 in_img = i['img']
                 in_srt = i['srt']
-            name = os.path.basename(i['in'])
+            #~ name = os.path.basename(i['in'])
             duration = self.get_duration_string(i['duration'])
-            log_data = list(zip(['In file', 'Image', 'Label', 'Subtitle', 
+            log_data = list(zip(['In file(s)', 'Image', 'Label', 'Subtitle', 
                              'Aspect Ratio', 'Duration'], 
-                            [in_vid, in_img, i['menu_label'], in_srt, 
+                            [in_vids, in_img, i['menu_label'], in_srt, 
                              '{:.2f}'.format(i['ar']), duration]))
             if in_dir:
                 log_data.append(('In Dir', in_dir))
@@ -975,7 +1053,7 @@ class DVD (object):
                                                    len(self.vids))]))
             log_data.append(('Videos', [v['vid_label'] for v in i['vids']]))
             log_items('Titleset #{} of {}'.format(n+1, len(self.titlesets)),
-                      lines_before=1, sep_pre='-', sep_post='-')
+                      lines_before=0, sep_pre='-', sep_post='-')
             log_items(log_data, col_width=12, indent=4)
     
     def log_menu_info(self):
@@ -1000,7 +1078,8 @@ class DVD (object):
                 break
             vids = [i['vid_label'] for i in self.vids]
             path = user_input.prompt_user_list(vids, header=choices[resp])
-            path = self.vids[path]['in']
+            # TODO: offer choice of files when video is stacked
+            path = self.vids[path]['in'][0]
             if resp == 1:
                 o = subprocess.check_call([VIDEO_PLAYER, path])
             elif resp == 2:
@@ -1008,7 +1087,7 @@ class DVD (object):
                                              os.path.dirname(path)],
                                             universal_newlines=True)
                 print('\n{}\n\n{}'.format(path, o.strip()))
-
+    
     def prompt_menu(self):
         choices = ['Continue',
                    'Display Menu Image',
@@ -1024,14 +1103,13 @@ class DVD (object):
             elif resp == 2:
                 o = subprocess.check_call([VIDEO_PLAYER, 
                                            self.menu.path_menu_mpg])
-                
     
     def get_duration_string(self, seconds):
         h,m,s = str(timedelta(seconds=seconds)).split(':')
         duration = '{:02.0f}:{:02.0f}:{:02.0f}'.format(float(h), float(m), 
                                                        float(s))
         return duration
-
+    
     def split_titlesets(self):
         titlesets = [{'ar': 0, 'vids': [] }]
         for n,i in enumerate(self.vids):
@@ -1103,6 +1181,7 @@ class DVD (object):
                             dvd_menu_ar=self.dvd_menu_ar)
     
     def encode_video(self):
+        # TODO: self.vids[n]['in'] is now a list of paths 
         if self.no_encode_v:
             log_items('Skipping encoding mpeg2 video...')
             for i in self.vids:
@@ -1122,7 +1201,7 @@ class DVD (object):
                                     two_pass=self.two_pass,
                                     aspect=aspect,
                                     with_subs=self.with_subs, 
-                                    in_srt=v['srt'])
+                                    in_srt=v['srt'][0])
                 mpeg = e.encode()
                 v['mpeg'] = mpeg
     
@@ -1202,11 +1281,16 @@ class DVD (object):
     
     def populate_pgcgroup(self, in_vids, separate_titles, call_target):
         groups = []
+        #~ vob_sets = []
+        #~ for v in in_vids:
+            #~ vobs = [etree.Element('vob', file=i) for i in v]
+            #~ vob_sets.append(vobs)
         vobs = [etree.Element('vob', file=i) for i in in_vids]
         if separate_titles:
             for n,i in enumerate(vobs):
                 pgc = etree.Element('pgc')
                 pgc.append(i)
+                #~ pgc.extend(i)
                 post = etree.SubElement(pgc, 'post')
                 if n == len(vobs)-1:
                     post.text = call_target
@@ -1215,6 +1299,7 @@ class DVD (object):
                 groups.append(pgc)
         else:
             pgc = etree.Element('pgc')
+            #~ vobs = [v for s in vob_sets for v in s]
             pgc.extend(vobs)
             post = etree.SubElement(pgc, 'post')
             post.text = call_target
