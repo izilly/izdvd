@@ -1020,8 +1020,10 @@ class DVD (object):
                 in_dir = commonprefix
                 #~ in_vid = os.path.relpath(i['in'], commonprefix)
                 in_vids = [os.path.relpath(v, commonprefix) for v in i['in']]
-                in_srt = [os.path.relpath(v, commonprefix) for v in i['srt']]
-                in_img = os.path.relpath(i['img'], commonprefix)
+                in_srt = [os.path.relpath(v, commonprefix) if v else None 
+                          for v in i['srt']]
+                in_img = os.path.relpath(i['img'], 
+                                         commonprefix) if i['img'] else None
                 #~ in_srt = os.path.relpath(i['srt'], commonprefix)
             else:
                 in_dir = None
@@ -1312,6 +1314,4 @@ class DVD (object):
         e['VIDEO_FORMAT'] = 'NTSC'
         cmd = ['dvdauthor', '-x', self.out_dvd_xml, '-o', self.out_dvd_dir]
         o = subprocess.check_output(cmd, env=e, universal_newlines=True)
-
-
 
