@@ -91,28 +91,32 @@ class Img (object):
         self.x_offset = 0
         self.y_offset = 0
     
-    def write(self, overwrite=False, out_dir=None, 
-              out_basename=None, suffix_name=True, backup=True):
+    def write(self, overwrite=False, out_file=None, suffix_name=True, 
+              backup=True):
         if overwrite:
             if backup:
                 bak = shutil.move(self.versions[0], self.versions[0]+'.bak')
-            written = shutil.copy(self.path, self.version[0])
+            written = shutil.copy(self.path, self.versions[0])
             self.update_versions(written)
             return written
-        if out_dir is None:
+        
+        if out_file is None:
             out_dir = self.tmpdir
-        if out_basename is None:
             if suffix_name is True:
                 out_basename = self.basename
             else:
                 out_basename = self.orig_name+self.ext
-        out_path = os.path.join(out_dir, out_basename)
-        if os.path.exists(out_path):
-            if os.path.samefile(out_path, self.path):
-                return out_path
+            out_file = os.path.join(out_dir, out_basename)
+        else:
+            out_dir = os.path.dirname(out_file)
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        if os.path.exists(out_file):
+            if os.path.samefile(out_file, self.path):
+                return out_file
             else:
-                bak = shutil.move(out_path, out_path+'.bak')
-        written = shutil.copy(self.path, out_path)
+                bak = shutil.move(out_file, out_file+'.bak')
+        written = shutil.copy(self.path, out_file)
         self.update_versions(written)
         return written
     
@@ -128,7 +132,15 @@ class Img (object):
         self.update_versions(out_file)
         return out_file
     
-    def resize(self, width, height, ignore_aspect=False, out_file=None, 
+    def get_colors(self):
+        out_file = self.get_tmpfile('colors', 'png')
+        o = subprocess.check_output(['convert', self.path, '-unique-colors', 
+                                    out_file])
+        self.colors = out_file
+        return out_file
+    
+    def resize(self, width, height, ignore_aspect=False, no_antialias=False, 
+               no_dither=False, colors=None, remap=None, out_file=None, 
                out_fmt='png'):
         if out_file is None:
             out_file = self.get_tmpfile('{}x{}'.format(width, height), out_fmt)
@@ -136,8 +148,21 @@ class Img (object):
         if ignore_aspect:
             flags='!'
         size = '{}x{}{}'.format(width, height, flags)
-        o = subprocess.check_output(['convert', self.path, '-resize', size, 
-                                     out_file], universal_newlines=True)
+        
+        cmd = ['convert', self.path, '-resize', size]
+        if no_antialias:
+            cmd += ['+antialias']
+        if no_dither:
+            cmd += ['+dither']
+        if colors is not None:
+            cmd += ['-colors', str(colors)]
+        if remap is True:
+            remap = self.get_colors()
+        if remap:
+            cmd += ['-remap', remap]
+            
+        
+        o = subprocess.check_output(cmd + [out_file], universal_newlines=True)
         self.update_versions(out_file)
         return out_file
     
@@ -196,12 +221,17 @@ class Img (object):
             return
         self.pad_to(color, new_w, new_h, out_file, out_fmt)
     
-    def border(self, color, geometry, out_file=None, out_fmt='png'):
+    def border(self, geometry, color='none', shave=False, 
+               out_file=None, out_fmt='png'):
         if out_file is None:
             out_file = self.get_tmpfile('border', out_fmt)
+        if shave:
+            border_cmd = '-shave'
+        else:
+            border_cmd = '-border'
         before_w, before_h = self.update_dims()
         o = subprocess.check_output(['convert', self.path, '-compose', 'Copy', 
-                                     '-bordercolor', color, '-border', 
+                                     '-bordercolor', color, border_cmd, 
                                      str(geometry), out_file], 
                                     universal_newlines=True)
         self.update_versions(out_file)
@@ -310,13 +340,15 @@ class Img (object):
 
 
 class TextImg(Img):
-    def __init__(self, text, font='DejaVu-Sans-Bold', pointsize=None,
+    def __init__(self, text, out_file=None, 
+                 font='DejaVu-Sans-Bold', pointsize=None,
                  fill='white', stroke='black', strokewidth=0, word_spacing=0,
                  clear_inner_stroke=True,
                  line_height=None, max_width=None, max_lines=None, 
                  size=None, background='none', gravity='center'):
         self.text = text
         self.font = font
+        self.out_file = out_file
         self.pts = pointsize
         self.pts_orig = pointsize
         self.fill = fill
@@ -444,32 +476,40 @@ class TextImg(Img):
         w,z,x,z = out_w.split(';')
         return (int(w), int(h), int(x), int(y))
     
-    def write(self, cmd=None, out_dir=None, out_basename=None):
+    def write(self, cmd=None, out_file=None):
         if len(self.lines['used']) > 1:
             self.append_lines()
             return
         
         if cmd is None:
-            cmd = self.get_draw_cmd()
-        if out_dir is None:
-            out_dir = self.tmpdir
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
-        if out_basename is None:
-            out_basename = self.basename
-        out_path = os.path.join(out_dir, out_basename)
-        cmd = cmd + [out_path]
+            line = self.lines['used'][0]
+            text = ' '.join(line['line'])
+            if line['trim']:
+                text = text[:line['trim']] + '...'
+            cmd = self.get_draw_cmd(text=text)
+        
+        if out_file is None:
+            if self.out_file:
+                out_file = self.out_file
+            else:
+                out_file = os.path.join(self.tmpdir, self.basename)
+        out_dir = os.path.dirname(out_file)
+        if out_dir:
+            if not os.path.exists(out_dir):
+                os.makedirs(out_dir)
+        
+        cmd = cmd + [out_file]
         output = subprocess.check_output(cmd, universal_newlines=True)
-        written = out_path
-        self.update_versions(written)
+        self.update_versions(out_file)
+        
         if self.line_height:
             h = self.get_height()
             lines = self.max_lines if self.max_lines else 1
             padded_h = self.line_height * lines
             if h != padded_h:
-                written = self.pad_to(new_h=padded_h, gravity=self.gravity,
-                                      out_file=out_path)
-        return written
+                out_file = self.pad_to(new_h=padded_h, gravity=self.gravity,
+                                      out_file=out_file)
+        return out_file
     
     def get_line_imgs(self):
         line_imgs = []
