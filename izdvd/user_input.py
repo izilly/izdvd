@@ -22,7 +22,9 @@ def prompt_user_list(choices, prompt=None,
         print('{}:'.format(header))
     if prompt is None:
         prompt = 'Select from the choices above [{}]: '.format(default)
-    choices = '\n'.join(['{}) {}'.format(n, i) for n,i in enumerate(choices)])
+    idx_width = len(str(len(choices)))
+    choices = '\n'.join(['{:{width}}) {}'.format(n, i, width=idx_width) 
+                         for n,i in enumerate(choices)])
     if include_quit:
         choices = '\n'.join([choices, '{}) {}'.format(*quit_def)])
     if choices_sep:
