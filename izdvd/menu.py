@@ -669,69 +669,144 @@ class DVDMenu (object):
 class DVD (object):
     def __init__(self, 
                  # input 
-                 in_vids=None, in_dirs=None, in_parent=None, in_srts=None, 
-                 menu_imgs=None, menu_labels=None, menu_bg=None, 
+                 in_vids=None, 
+                 in_dirs=None, 
+                 in_parent=None, 
+                 in_srts=None, 
+                 menu_imgs=None, 
+                 menu_labels=None, 
+                 menu_bg=None, 
                  # input options
-                 one_dir=False,
+                 vid_fmts=['mp4', 'avi', 'mkv'],
+                 img_fmts=['png', 'jpg', 'bmp', 'gif'],
+                 sub_fmts=['srt'],
+                 img_names=['poster', 'folder'],
+                 one_vid_per_dir=False,
                  label_from_img=False,
-                 label_from_dir=True, strip_label_year=True,
-                 no_encode_v=False, no_encode_a=False, 
+                 label_from_dir=True, 
+                 strip_label_year=True,
+                 no_encode_v=False, 
+                 no_encode_a=False, 
                  unstack_vids=None,
                  # output locations
                  out_name=None, 
-                 out_dvd_dir=None, out_files_dir=None, tmp_dir=None,
+                 out_dvd_dir=None, 
+                 out_files_dir=None, 
+                 tmp_dir=None,
                  # output options
-                 with_menu=True, menu_only=False,
+                 with_menu=True, 
+                 menu_only=False,
                  with_author_dvd=True,
                  dvd_size_bits=37602983936,
                  # dvd options
                  audio_lang='en',
-                 with_subs=False, sub_lang='en', 
-                 dvd_format='NTSC', dvd_ar=None, 
-                 vbitrate=None, abitrate=196608, two_pass=True,
+                 with_subs=False, 
+                 sub_lang='en', 
+                 dvd_format='NTSC', 
+                 dvd_ar=None, 
+                 vbitrate=None, 
+                 abitrate=196608, 
+                 two_pass=True,
                  separate_titles=True, 
-                 separate_titlesets=False, ar_threshold=1.38,
+                 separate_titlesets=False, 
+                 ar_threshold=1.38,
                  # menu options
                  dvd_menu_ar=None,
                  with_menu_labels=True, 
                  menu_label_line_height=18,
                  no_loop_menu=True):
         self.uid = str(id(self))
-        self.in_parent = in_parent
-        self.one_dir = one_dir
-        self.with_subs = with_subs
-        self.sub_lang = sub_lang
-        self.audio_lang = audio_lang
-        self.with_menu = with_menu
-        self.with_menu_labels = with_menu_labels
-        self.label_from_img = label_from_img
-        self.label_from_dir = label_from_dir
-        self.strip_label_year = strip_label_year
-        self.menu_label_line_height = menu_label_line_height
-        self.dvd_format = dvd_format
-        self.dvd_ar = dvd_ar
-        if dvd_menu_ar is None:
-            self.dvd_menu_ar = dvd_ar
-        else:
-            self.dvd_menu_ar = dvd_menu_ar
-        self.vbitrate = vbitrate
-        self.abitrate = abitrate
-        self.two_pass = two_pass
-        self.no_encode_v = no_encode_v
-        self.no_encode_a = no_encode_a
-        self.dvd_size_bits = dvd_size_bits
+        # input 
+        self.in_vids=in_vids 
+        self.in_dirs=in_dirs 
+        self.in_parent=in_parent 
+        self.in_srts=in_srts 
+        self.menu_imgs=menu_imgs 
+        self.menu_labels=menu_labels 
+        self.menu_bg=menu_bg 
+        # input options
+        self.vid_fmts=vid_fmts
+        self.img_fmts=img_fmts
+        self.sub_fmts=sub_fmts
+        self.img_names = img_names
+        self.one_vid_per_dir=one_vid_per_dir
+        self.label_from_img=label_from_img
+        self.label_from_dir=label_from_dir 
+        self.strip_label_year=strip_label_year
+        self.no_encode_v=no_encode_v 
+        self.no_encode_a=no_encode_a 
+        self.unstack_vids=unstack_vids
+        # output locations
+        self.out_name=out_name 
+        self.out_dvd_dir=out_dvd_dir 
+        self.out_files_dir=out_files_dir 
+        self.tmp_dir=tmp_dir
+        # output options
+        self.with_menu=with_menu 
+        self.menu_only=menu_only
+        self.with_author_dvd=with_author_dvd
+        self.dvd_size_bits=dvd_size_bits
         self.dvd_size_bytes = dvd_size_bits / 8
-        self.separate_titles = separate_titles
-        self.separate_titlesets = separate_titlesets
-        self.ar_threshold = ar_threshold
-        self.no_loop_menu = no_loop_menu
-        self.menu_only = menu_only
-        self.with_author_dvd = with_author_dvd
-        self.unstack_vids = unstack_vids
+        # dvd options
+        self.audio_lang=audio_lang
+        self.with_subs=with_subs 
+        self.sub_lang=sub_lang 
+        self.dvd_format=dvd_format 
+        self.dvd_ar=dvd_ar 
+        self.vbitrate=vbitrate 
+        self.abitrate=abitrate 
+        self.two_pass=two_pass
+        self.separate_titles=separate_titles 
+        self.separate_titlesets=separate_titlesets 
+        self.ar_threshold=ar_threshold
+        # menu options
+        self.dvd_menu_ar=dvd_menu_ar
+        self.with_menu_labels=with_menu_labels 
+        self.menu_label_line_height=menu_label_line_height
+        self.no_loop_menu=no_loop_menu
+        #-------------------------------
+        if self.dvd_menu_ar is None:
+            self.dvd_menu_ar = self.dvd_ar
+
+        #self.in_parent = in_parent
+        #self.one_dir = one_dir
+        #self.with_subs = with_subs
+        #self.sub_lang = sub_lang
+        #self.audio_lang = audio_lang
+        #self.with_menu = with_menu
+        #self.with_menu_labels = with_menu_labels
+        #self.label_from_img = label_from_img
+        #self.label_from_dir = label_from_dir
+        #self.strip_label_year = strip_label_year
+        #self.menu_label_line_height = menu_label_line_height
+        #self.dvd_format = dvd_format
+        #self.dvd_ar = dvd_ar
+        #if dvd_menu_ar is None:
+            #self.dvd_menu_ar = dvd_ar
+        #else:
+            #self.dvd_menu_ar = dvd_menu_ar
+        #self.vbitrate = vbitrate
+        #self.abitrate = abitrate
+        #self.two_pass = two_pass
+        #self.no_encode_v = no_encode_v
+        #self.no_encode_a = no_encode_a
+        #self.dvd_size_bits = dvd_size_bits
+        #self.dvd_size_bytes = dvd_size_bits / 8
+        #self.separate_titles = separate_titles
+        #self.separate_titlesets = separate_titlesets
+        #self.ar_threshold = ar_threshold
+        #self.no_loop_menu = no_loop_menu
+        #self.menu_only = menu_only
+        #self.with_author_dvd = with_author_dvd
+        #self.unstack_vids = unstack_vids
         # setup paths
+        self.get_in_vids()
+        self.get_menu_imgs()
+        self.get_menu_labels()
+        self.get_subs()
         self.get_out_files(out_name, out_dvd_dir, out_files_dir, tmp_dir)
-        self.get_in_files(in_vids, in_dirs, menu_imgs, menu_labels, menu_bg,
-                          in_srts)
+        #~ self.get_in_files(in_vids, in_dirs, menu_imgs, menu_labels, menu_bg,
+                          #~ in_srts)
         # get information about the video files
         self.get_media_info()
         self.log_output_info()
@@ -803,6 +878,76 @@ class DVD (object):
         self.out_dvd_xml = out_dvd_xml
         self.out_log = out_log
     
+    def get_in_vids(self):
+        if not self.in_vids:
+            if self.unstack_vids is None:
+                self.unstack_vids = True
+            in_vids = []
+            if not self.in_dirs:
+                raise
+            for d in self.in_dirs:
+                for pat in self.vid_fmts:
+                    found = sorted(glob.glob(os.path.join(d, '*.{}'.format(pat))))
+                    if found:
+                        if self.one_vid_per_dir:
+                            in_vids.extend(found[:1])
+                            break
+                        else:
+                            in_vids.extend(found)
+            self.in_vids = [i for i in in_vids if i is not None]
+        else:
+            if self.unstack_vids is None:
+                self.unstack_vids = False
+    
+    def get_menu_imgs(self):
+        if not self.with_menu:
+            self.menu_imgs = [None for i in self.in_vids]
+            return
+        if not self.menu_bg:
+            bg = CanvasImg(720, 480, 'gray')
+            self.menu_bg = bg.path
+        if not self.menu_imgs:
+            self.menu_imgs = []
+            for i in self.in_vids:
+                img = self.get_matching_file(i, self.img_fmts, 
+                                             self.img_names)
+                self.menu_imgs.append(img)
+    
+    def get_menu_labels(self):
+        if not self.menu_labels:
+            self.menu_labels = []
+            # get labels
+            if self.label_from_img:
+                label_list = self.menu_imgs
+            else:
+                label_list = self.in_vids
+            if self.label_from_dir:
+                pt = 0
+            else:
+                pt = 1
+            self.menu_labels = [os.path.splitext(
+                                     os.path.basename(os.path.split(i)[pt]))[0]
+                                if i is not None else None 
+                                for i in label_list]
+        self.vid_labels = self.menu_labels
+        if self.with_menu and self.with_menu_labels:
+            if self.strip_label_year:
+                pat = r'\s*\([-./\d]{2,12}\)\s*$'
+                self.menu_labels = [re.sub(pat, '', i) for i in menu_labels]
+        else:
+            self.menu_labels = [None for i in self.in_vids]
+    
+    def get_subs(self):
+        if self.with_subs:
+            if not self.in_srts:
+                self.in_srts = []
+                for i in self.in_vids:
+                    s = self.get_matching_file(i, self.sub_fmts)
+                    self.in_srts.append(s)
+            else:
+                self.in_srts = [None for i in self.in_vids]
+
+    
     def get_in_files(self, in_vids, in_dirs,
                      menu_imgs, menu_labels, menu_bg,
                      in_srts):
@@ -816,7 +961,7 @@ class DVD (object):
             if not in_dirs:
                 if not self.in_parent:
                     raise
-                if self.one_dir:
+                if self.one_vid_per_dir:
                     in_dirs = [self.in_parent]
                 else:
                     in_dirs = sorted([os.path.join(self.in_parent, i) 
@@ -826,7 +971,7 @@ class DVD (object):
                 for pat in vid_fmts:
                     found = sorted(glob.glob(os.path.join(d, pat)))
                     if found:
-                        if not self.one_dir:
+                        if not self.one_vid_per_dir:
                             in_vids.extend(found[:1])
                             break
                         else:
@@ -892,7 +1037,7 @@ class DVD (object):
             if getattr(self, i) is None:
                 setattr(self, i, [None for v in self.in_vids])
     
-    def get_matching_file(self, vid, fmts, names):
+    def get_matching_file(self, vid, fmts, names=[]):
         dirname, basename = os.path.split(vid)
         name, ext = os.path.splitext(basename)
         for n in [name, basename] + names:
@@ -901,12 +1046,14 @@ class DVD (object):
                 search_name = '.'.join([search_base, fmt])
                 if os.path.exists(search_name):
                     return search_name
-        if self.one_dir:
-            return None
-        for fmt in fmts:
-            found = sorted(glob.glob(os.path.join(dirname, '*.{}'.format(fmt))))
-            if found:
-                return found[0]
+        # if no exact match found and one_vid_per_dir, we still search for 
+        # match based only on file extension
+        if self.one_vid_per_dir:
+            for fmt in fmts:
+                found = sorted(glob.glob(os.path.join(dirname, 
+                                                      '*.{}'.format(fmt))))
+                if found:
+                    return found[0]
         return None
     
     def get_media_info(self):
@@ -1014,7 +1161,7 @@ class DVD (object):
             dirs.extend(i['srt'])
             dirs.append(i['img'])
             #~ dirs.extend([i['img'], i['srt']])
-            dirs = [i for i in dirs if i is not None]
+            dirs = [os.path.dirname(i) for i in dirs if i is not None]
             commonprefix = utils.get_commonprefix(dirs)
             if len(commonprefix) > 1:
                 in_dir = commonprefix
