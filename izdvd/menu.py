@@ -690,8 +690,7 @@ class DVD (object):
                  unstack_vids=None,
                  # output locations
                  out_name=None, 
-                 out_dvd_dir=None, 
-                 out_files_dir=None, 
+                 out_dir=None, 
                  tmp_dir=None,
                  # output options
                  with_menu=True, 
@@ -738,8 +737,7 @@ class DVD (object):
         self.unstack_vids=unstack_vids
         # output locations
         self.out_name=out_name 
-        self.out_dvd_dir=out_dvd_dir 
-        self.out_files_dir=out_files_dir 
+        self.out_dir=out_dir
         self.tmp_dir=tmp_dir
         # output options
         self.with_menu=with_menu 
@@ -804,7 +802,8 @@ class DVD (object):
         self.get_menu_imgs()
         self.get_menu_labels()
         self.get_subs()
-        self.get_out_files(out_name, out_dvd_dir, out_files_dir, tmp_dir)
+        self.get_out_files()
+        #~ self.get_out_files(out_name, out_dvd_dir, out_files_dir, tmp_dir)
         #~ self.get_in_files(in_vids, in_dirs, menu_imgs, menu_labels, menu_bg,
                           #~ in_srts)
         # get information about the video files
@@ -828,55 +827,50 @@ class DVD (object):
         if self.with_author_dvd:
             self.author_dvd()
     
-    def get_out_files(self, out_name, out_dvd_dir, out_files_dir, tmp_dir):
-        home = os.path.expandvars('$HOME')
-        tmp = tempfile.gettempdir()
-        home_free = get_space_available(home)
-        tmp_free = get_space_available(tmp)
+    def get_out_files(self):
         # name
-        if not out_name:
+        if not self.out_name:
             out_time = datetime.now().strftime('%Y.%m.%d-%H%M%S')
-            out_name = '{}_{}'.format(PROG_NAME, out_time)
+            self.out_name = '{}_{}'.format(PROG_NAME, out_time)
+        
+        # out dirs
+        if not self.out_dir:
+            self.out_dir = os.path.join(os.getcwd(), PROG_NAME, self.uid)
+        self.out_dvd_dir = os.path.join(self.out_dir, 'DVD')
+        self.out_files_dir = os.path.join(self.out_dir, 'files')
+        self.out_dvd_xml = os.path.join(self.out_files_dir, 
+                                        '{}_dvd.xml'.format(self.out_name))
+        self.out_log = os.path.join(self.out_files_dir, 
+                                    '{}.log'.format(self.out_name))
+        
         # tmp_dir
-        if not tmp_dir:
+        if not self.tmp_dir:
+            tmp = tempfile.gettempdir()
+            tmp_free = get_space_available(tmp)
             if tmp_free > self.dvd_size_bytes * 1.05:
-                tmp_dir = os.path.join(tmp, PROG_NAME, self.uid)
+                self.tmp_dir = os.path.join(tmp, PROG_NAME, self.uid)
             else:
-                tmp_dir = os.path.join(home, PROG_NAME, self.uid)
-        # dvd_dir
-        if not out_dvd_dir:
-            out_dvd_dir = os.path.join(home, PROG_NAME, self.uid, 'DVD')
-        # files_dir
-        if not out_files_dir:
-            out_files_dir = os.path.join(tmp, PROG_NAME, self.uid, 'Menu')
-        # make dirs if not present
-        for i in [out_dvd_dir, out_files_dir, tmp_dir]:
+                self.tmp_dir = os.path.join(self.out_dir, 'tmp')
+        
+        # make dirs if they don't exist
+        for i in [self.out_dvd_dir, self.out_files_dir, self.tmp_dir]:
             if not os.path.exists(i):
                 os.makedirs(i)
+        
         # check available space
-        fs = {}
+        devices = {}
         dvd_size = self.dvd_size_bytes
-        for d,s in zip([out_dvd_dir, out_files_dir, tmp_dir], 
+        for d,s in zip([self.out_dvd_dir, self.out_files_dir, self.tmp_dir], 
                        [dvd_size, dvd_size*.1, dvd_size]):
             dev = os.stat(d).st_dev
-            if fs.get(dev):
-                fs[dev] -= s
+            if devices.get(dev):
+                devices[dev] -= s
             else:
-                fs[dev] = get_space_available(i) - s
-        if min(fs.values()) < 1024*1024:
+                devices[dev] = get_space_available(i) - s
+        if min(devices.values()) < 1024*1024:
             raise
-        # dvdauthor xml file
-        out_dvd_xml = os.path.join(out_files_dir, '{}_dvd.xml'.format(out_name))
-        out_log = os.path.join(out_files_dir, '{}.log'.format(out_name))
-        logger.addHandler(logging.FileHandler(out_log))
-
         
-        self.out_name = out_name
-        self.out_dvd_dir = out_dvd_dir
-        self.out_files_dir = out_files_dir
-        self.tmp_dir = tmp_dir
-        self.out_dvd_xml = out_dvd_xml
-        self.out_log = out_log
+        logger.addHandler(logging.FileHandler(self.out_log))
     
     def get_in_vids(self):
         if not self.in_vids:
