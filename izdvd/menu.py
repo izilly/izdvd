@@ -671,7 +671,6 @@ class DVD (object):
                  # input 
                  in_vids=None, 
                  in_dirs=None, 
-                 in_parent=None, 
                  in_srts=None, 
                  menu_imgs=None, 
                  menu_labels=None, 
@@ -696,7 +695,8 @@ class DVD (object):
                  with_menu=True, 
                  menu_only=False,
                  with_author_dvd=True,
-                 dvd_size_bits=37602983936,
+                 #~ dvd_size_bits=37602983936,
+                 dvd_size_bytes=4700372992,
                  # dvd options
                  audio_lang='en',
                  with_subs=False, 
@@ -718,7 +718,6 @@ class DVD (object):
         # input 
         self.in_vids=in_vids 
         self.in_dirs=in_dirs 
-        self.in_parent=in_parent 
         self.in_srts=in_srts 
         self.menu_imgs=menu_imgs 
         self.menu_labels=menu_labels 
@@ -743,8 +742,8 @@ class DVD (object):
         self.with_menu=with_menu 
         self.menu_only=menu_only
         self.with_author_dvd=with_author_dvd
-        self.dvd_size_bits=dvd_size_bits
-        self.dvd_size_bytes = dvd_size_bits / 8
+        self.dvd_size_bytes=dvd_size_bytes
+        self.dvd_size_bits = dvd_size_bytes * 8
         # dvd options
         self.audio_lang=audio_lang
         self.with_subs=with_subs 
