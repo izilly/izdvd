@@ -141,7 +141,6 @@ def get_options():
     menu_opts = parser.add_argument_group(title='Menu options')
 
     menu_opts.add_argument('--menu-ar', choices=['16:9', '4:3'], default=None,
-                          dest='dvd_menu_ar',
                           help="Menu aspect ratio.  If not specified, it defaults to 16:9 unless if all titles are 4:3 (or dvd-ar is forced to 4:3)")
 
     menu_opts.add_argument('--with-menu-labels', action='store_true', 
@@ -223,7 +222,7 @@ def make_dvd(options):
               separate_titlesets=options.separate_titlesets, 
               #~ ar_threshold=options.ar_threshold,
               # menu options
-              dvd_menu_ar=options.dvd_menu_ar,
+              menu_ar=options.menu_ar,
               with_menu_labels=options.with_menu_labels, 
               label_line_height=options.label_line_height,
               label_lines = options.label_lines,

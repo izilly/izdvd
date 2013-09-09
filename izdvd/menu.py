@@ -521,14 +521,22 @@ class BG (object):
 
 
 class DVDMenu (object):
-    def __init__(self, bg_img, button_imgs, 
-                 button_labels=None, 
-                 out_dir=None, out_name=None,
-                 label_line_height=18, label_lines=2, 
-                 label_padding=5, outer_padding=80, inner_padding=40, 
-                 dvd_format='NTSC', dvd_menu_ar=4/3, dvd_menu_audio=None):
+    def __init__(self, 
+                 menu_imgs, 
+                 menu_bg=None,
+                 menu_labels=None, 
+                 out_dir=None, 
+                 out_name=None,
+                 label_line_height=18, 
+                 label_lines=2, 
+                 label_padding=5, 
+                 outer_padding=80, 
+                 inner_padding=40, 
+                 menu_ar=4/3, 
+                 menu_audio=None,
+                 dvd_format='NTSC'):
         #~ width = 720
-        if dvd_menu_ar == 4/3:
+        if menu_ar == 4/3:
             width = 640
         else:
             width = 854
@@ -540,13 +548,13 @@ class DVDMenu (object):
         self.out_dir = out_dir
         self.out_name = out_name
         self.dvd_format = dvd_format
-        self.dvd_menu_ar = dvd_menu_ar
-        self.dvd_menu_audio = dvd_menu_audio
-        has_labels = [i for i in button_labels if i]
+        self.menu_ar = menu_ar
+        self.menu_audio = menu_audio
+        has_labels = [i for i in menu_labels if i]
         if not has_labels:
             label_line_height = 0
-        self.bg = BG(bg_img, button_imgs, 
-                     button_labels=button_labels,
+        self.bg = BG(menu_bg, menu_imgs, 
+                     button_labels=menu_labels,
                      out_dir=out_dir, out_name=out_name,
                      label_line_height=label_line_height, 
                      label_lines=label_lines, 
@@ -554,7 +562,7 @@ class DVDMenu (object):
                      outer_padding=outer_padding, 
                      inner_padding=inner_padding, 
                      width=width, height=height, 
-                     #~ display_ar=dvd_menu_ar)
+                     #~ display_ar=menu_ar)
                      display_ar=display_ar)
         self.setup_out_dir()
         self.bg.bg_img.resize(720, height, ignore_aspect=True)
@@ -567,7 +575,7 @@ class DVDMenu (object):
         self.bg.write_bg(out_file_bg=self.path_bg_img, 
                       out_file_hl=self.path_hl_img,
                       out_file_sl=self.path_sl_img)
-        if self.dvd_menu_ar == 16/9:
+        if self.menu_ar == 16/9:
             self.bg.highlight_lb_img = Img(self.path_hl_img)
             self.bg.select_lb_img = Img(self.path_sl_img)
             
@@ -610,7 +618,7 @@ class DVDMenu (object):
         self.path_bg_img = '{}_bg.png'.format(self.out_path)
         self.path_hl_img = '{}_hl.png'.format(self.out_path)
         self.path_sl_img = '{}_sl.png'.format(self.out_path)
-        if self.dvd_menu_ar == 16/9:
+        if self.menu_ar == 16/9:
             self.path_hl_lb_img = '{}_hl_lb.png'.format(self.out_path)
             self.path_sl_lb_img = '{}_sl_lb.png'.format(self.out_path)
             self.path_menu_lb_mpg = '{}_menu_lb.mpg'.format(self.out_path)
@@ -633,7 +641,7 @@ class DVDMenu (object):
             framerate = '30000:1001'
             pixel_aspect = '10:11'
             fmt = 'n'
-        if self.dvd_menu_ar == 16/9:
+        if self.menu_ar == 16/9:
             aspect = '3'
         else:
             aspect = '2'
@@ -653,8 +661,8 @@ class DVDMenu (object):
     
     def convert_audio(self):
         # dd if=/dev/zero bs=4 count=number-of-samples | toolame -b 128 -s 48 /dev/stdin output.m2a
-        if self.dvd_menu_audio:
-            in_file = ['-i', self.dvd_menu_audio]
+        if self.menu_audio:
+            in_file = ['-i', self.menu_audio]
             cmd = ['ffmpeg'] + in_file + ['-ac', '2', '-ar', '48000', 
                    '-b:a', '224000', '-codec:a', 'ac3', '-y', self.path_bg_ac3]
             o = subprocess.check_output(cmd, universal_newlines=True)
@@ -721,7 +729,7 @@ class DVDMenu (object):
                              self.path_menu_xml)
         self.multiplex_buttons(self.path_bg_mpg, self.path_menu_mpg,
                                self.path_menu_xml, '0')
-        if self.dvd_menu_ar == 16/9:
+        if self.menu_ar == 16/9:
             self.create_menu_xml(self.path_hl_lb_img, self.path_sl_lb_img, 
                                  self.path_menu_lb_xml)
             self.multiplex_buttons(self.path_menu_mpg, self.path_menu_lb_mpg,
@@ -799,7 +807,7 @@ class DVD (object):
                  separate_titlesets=False, 
                  ar_threshold=1.38,
                  # menu options
-                 dvd_menu_ar=None,
+                 menu_ar=None,
                  with_menu_labels=False, 
                  label_line_height=None,
                  label_lines=None,
@@ -851,7 +859,7 @@ class DVD (object):
         self.separate_titlesets=separate_titlesets 
         self.ar_threshold=ar_threshold
         # menu options
-        self.dvd_menu_ar=dvd_menu_ar
+        self.menu_ar=menu_ar
         self.with_menu_labels=with_menu_labels 
         self.label_line_height=label_line_height
         self.label_lines = label_lines
@@ -861,8 +869,8 @@ class DVD (object):
         self.menu_audio = menu_audio
         self.no_loop_menu=no_loop_menu
         #-------------------------------
-        if self.dvd_menu_ar is None:
-            self.dvd_menu_ar = self.dvd_ar
+        if self.menu_ar is None:
+            self.menu_ar = self.dvd_ar
 
         #self.in_parent = in_parent
         #self.one_dir = one_dir
@@ -877,10 +885,10 @@ class DVD (object):
         #self.menu_label_line_height = menu_label_line_height
         #self.dvd_format = dvd_format
         #self.dvd_ar = dvd_ar
-        #if dvd_menu_ar is None:
-            #self.dvd_menu_ar = dvd_ar
+        #if menu_ar is None:
+            #self.menu_ar = dvd_ar
         #else:
-            #self.dvd_menu_ar = dvd_menu_ar
+            #self.menu_ar = menu_ar
         #self.vbitrate = vbitrate
         #self.abitrate = abitrate
         #self.two_pass = two_pass
@@ -1298,7 +1306,7 @@ class DVD (object):
             log_items(log_data, col_width=12, indent=4)
     
     def log_menu_info(self):
-        if self.dvd_menu_ar == 16/9:
+        if self.menu_ar == 16/9:
             ar = '16:9'
         else:
             ar = '4:3'
@@ -1373,8 +1381,8 @@ class DVD (object):
                 self.dvd_ar = 16/9
             else:
                 self.dvd_ar = 4/3
-            if self.dvd_menu_ar is None:
-                self.dvd_menu_ar = self.dvd_ar
+            if self.menu_ar is None:
+                self.menu_ar = self.dvd_ar
         return titlesets
     
     def calculate_vbitrate(self):
@@ -1430,13 +1438,13 @@ class DVD (object):
                             #~ label_line_height=self.menu_label_line_height,
                             #~ out_dir=self.out_files_dir,
                             #~ out_name=self.out_name,
-                            #~ dvd_menu_ar=self.dvd_menu_ar)
-        self.menu = DVDMenu(self.menu_bg, 
-                            self.menu_imgs, 
-                            button_labels=self.menu_labels, 
+                            #~ menu_ar=self.menu_ar)
+        self.menu = DVDMenu(self.menu_imgs, 
+                            menu_bg=self.menu_bg,
+                            menu_labels=self.menu_labels, 
                             out_dir=self.out_files_dir,
                             out_name=self.out_name,
-                            dvd_menu_ar=self.dvd_menu_ar,
+                            menu_ar=self.menu_ar,
                             **menu_args)
     
     def encode_video(self):
@@ -1474,7 +1482,7 @@ class DVD (object):
             dvd_ar = '16:9'
         else:
             dvd_ar = '4:3'
-        if self.menu.dvd_menu_ar == 16/9:
+        if self.menu.menu_ar == 16/9:
             menu_ar = '16:9'
         else:
             menu_ar = '4:3'
