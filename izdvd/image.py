@@ -120,8 +120,12 @@ class Img (object):
         self.update_versions(written)
         return written
     
-    def show(self):
-        cmd = ['display', self.path]
+    def show(self, version_idx=None):
+        if version_idx is None:
+            path = self.path
+        else:
+            path = self.versions[version_idx]
+        cmd = ['display', path]
         subprocess.check_call(cmd)
     
     def transcode(self, out_file=None, out_fmt='png'):
@@ -504,7 +508,8 @@ class TextImg(Img):
         
         if self.line_height:
             h = self.get_height()
-            lines = self.max_lines if self.max_lines else 1
+            #~ lines = self.max_lines if self.max_lines else 1
+            lines = len(self.lines['used'])
             padded_h = self.line_height * lines
             if h != padded_h:
                 out_file = self.pad_to(new_h=padded_h, gravity=self.gravity,
@@ -696,6 +701,7 @@ class TextImg(Img):
                         break
                 else:
                     break
+        lines = [i for i in lines if i['line']]
         self.lines['used'] = lines
     
     def _maximize_pts(self):

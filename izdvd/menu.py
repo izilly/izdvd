@@ -25,7 +25,7 @@ import logging
 import numbers
 import textwrap
 
-PROG_NAME = 'WTA_DVD'
+PROG_NAME = 'izdvd'
 BLANK_MPG = '/home/will/Videos/dvdauthoring/00-menus/blank.mpg'
 VIDEO_PLAYER = 'mplayer'
 IMAGE_VIEWER = 'display'
@@ -105,7 +105,8 @@ class BG (object):
                  highlight_color='#56B356', select_color='red',
                  label_line_height=0, label_lines=2, 
                  label_padding=5, outer_padding=30, inner_padding=30, 
-                 width=None, height=None, display_ar=None):
+                 width=None, height=None, display_ar=None,
+                 shadow_sigma=3, shadow_x_offset=5, shadow_y_offset=5):
         self.bg_img = Img(bg_img)
         self.button_imgs = [Img(i) for i in button_imgs]
         self.out_dir = out_dir
@@ -121,6 +122,9 @@ class BG (object):
         self.label_padding = label_padding
         self.outer_padding = outer_padding
         self.inner_padding = inner_padding
+        self.shadow_sigma = shadow_sigma
+        self.shadow_x_offset = shadow_x_offset
+        self.shadow_y_offset = shadow_y_offset
         if width is None:
             self.width = self.bg_img.width
         else:
@@ -138,11 +142,12 @@ class BG (object):
         self.multiplier = self.storage_ar / self.display_ar
         self.cells = len(self.button_imgs)
         #
+        self.create_labels()
         self.calc_cell_ar()
         self.get_grid_size()
         self.resize_buttons()
         self.prepare_buttons()
-        self.create_labels()
+        #~ self.create_labels()
         self.append_labels()
         self.apply_shadows()
         self.get_cell_locations()
@@ -275,10 +280,14 @@ class BG (object):
         '''
         padding_w = self.inner_padding * (cols - 1)
         padding_h = self.inner_padding * (rows - 1)
-        label_padding_h = (self.label_line_height*self.label_lines 
-                           + self.label_padding) * rows
-        padded_w = bg_w - padding_w
-        padded_h = bg_h - padding_h - label_padding_h
+        #~ label_padding_h = (self.label_line_height*self.label_lines 
+                           #~ + self.label_padding) * rows
+        label_padding_h = (self.label_height + self.label_padding) * rows
+        shadow_padding = self.calculate_shadow_padding()
+        shadow_padding_x = shadow_padding['x']
+        shadow_padding_y = shadow_padding['y']
+        padded_w = bg_w - padding_w - shadow_padding_x
+        padded_h = bg_h - padding_h - label_padding_h - shadow_padding_y
         col_w = padded_w / cols
         row_h = padded_h / rows
         cell_w = col_w
@@ -288,6 +297,77 @@ class BG (object):
             cell_w = cell_h*cell_ar
         # return area, cell_width, cell_height
         return cell_w*cell_h, math.floor(cell_w), math.floor(cell_h)
+    
+    def old_calculate_shadow_padding(self):
+        '''
+        Calculates the increase in size that will result from applying
+        a drop shadow to the button images.
+        
+        The sigma option increases the size by 2*sigma in all four directions,
+        but along 2 of the images 4 edges, this increase can be reduced by 
+        the x_offset and y_offset options.  
+        
+        Basically, a new image will be created that is 2*sigma larger in all 
+        four directions, then that image will be layered below the original
+        image, aligned according to x and y offsets.  So with a zero offset
+        in a given direction, the image would grow by 4*sigma (2*sigma on both
+        sides) but any non-zero offset will cause one side to grow by 2*sigma
+        and the other to grow an amount between 0 and 2*sigma (if the offset 
+        in that given direction is greater than or equal to 2*sigma, then it 
+        would be 0, because it cannot shrink, else it would be 2*sigma minus
+        the offset).
+        '''
+        
+        x_offset_padding = abs(self.shadow_x_offset)
+        y_offset_padding = abs(self.shadow_y_offset)
+        sigma_padding = self.shadow_sigma * 2
+        sigma_padding_large = sigma_padding
+        x_sigma_padding_small = max([sigma_padding - x_offset_padding, 0])
+        y_sigma_padding_small = max([sigma_padding - y_offset_padding, 0])
+        #
+        x_padding = (x_offset_padding
+                     + sigma_padding_large
+                     + x_sigma_padding_small)
+        y_padding = (y_offset_padding
+                     + sigma_padding_large
+                     + y_sigma_padding_small)
+        shadow_padding = (x_padding, y_padding)
+        return shadow_padding
+
+    def calculate_shadow_padding(self):
+        '''
+        Calculates the increase in size that will result from applying
+        a drop shadow to the button images.
+        
+        The sigma option increases the size by 2*sigma in all four directions,
+        but along 2 of the images 4 edges, this increase can be reduced by 
+        the x_offset and y_offset options.  
+        
+        Basically, a new image will be created that is 2*sigma larger in all 
+        four directions, then that image will be layered below the original
+        image, aligned according to x and y offsets.  So with a zero offset
+        in a given direction, the image would grow by 4*sigma (2*sigma on both
+        sides) but any non-zero offset will cause one side to grow by 2*sigma
+        and the other to grow an amount between 0 and 2*sigma (if the offset 
+        in that given direction is greater than or equal to 2*sigma, then it 
+        would be 0, because it cannot shrink, else it would be 2*sigma minus
+        the offset).
+        '''
+        
+        sigma = self.shadow_sigma * 2
+        # north/west movements above zero have no effect
+        north = abs(min([sigma*-1 + self.shadow_y_offset, 0]))
+        west = abs(min([sigma*-1 + self.shadow_x_offset, 0]))
+        # south/east movements below zero have no effect
+        south = max([sigma + self.shadow_y_offset, 0])
+        east = max([sigma + self.shadow_x_offset, 0])
+        shadow_padding = {'y': north + south,
+                          'x': west + east,
+                          'north': north,
+                          'south': south,
+                          'east': east,
+                          'west': west}
+        return shadow_padding
     
     def resize_buttons(self):
         '''Resize each button image to fit into the aspect ratio stored in
@@ -355,6 +435,7 @@ class BG (object):
                                   strokewidth=4)
             labels.append(img)
         height = max([i.get_height() for i in labels])
+        self.label_height = height
         for i in labels:
             if i.get_height() < height:
                 i.pad_to(new_w=i.get_width(), new_h=height)
@@ -371,7 +452,9 @@ class BG (object):
     
     def apply_shadows(self):
         for i in self.button_imgs:
-            i.drop_shadow()
+            i.drop_shadow(sigma=self.shadow_sigma, 
+                          x_offset=self.shadow_x_offset,
+                          y_offset=self.shadow_y_offset)
     
     def get_cell_locations(self):
         '''Get the coordinates at which to place each button
@@ -385,8 +468,11 @@ class BG (object):
         cells = self.cells
         cols = self.cols
         rows = self.rows
-        cell_w = self.cell_w
-        cell_h = self.cell_h + self.label_line_height + self.label_padding
+        #~ label_height = self.label_line_height * self.label_lines
+        label_height = self.label_height
+        shadow_padding = self.calculate_shadow_padding()
+        cell_w = self.cell_w + shadow_padding['x']
+        cell_h = self.cell_h + label_height + self.label_padding + shadow_padding['y']
         bg_w = self.width
         bg_h = self.height
         total_cells = list(range(cells))
@@ -438,7 +524,7 @@ class DVDMenu (object):
     def __init__(self, bg_img, button_imgs, 
                  button_labels=None, 
                  out_dir=None, out_name=None,
-                 label_line_height=0, label_lines=2, 
+                 label_line_height=18, label_lines=2, 
                  label_padding=5, outer_padding=80, inner_padding=40, 
                  dvd_format='NTSC', dvd_menu_ar=4/3, dvd_menu_audio=None):
         #~ width = 720
@@ -456,6 +542,9 @@ class DVDMenu (object):
         self.dvd_format = dvd_format
         self.dvd_menu_ar = dvd_menu_ar
         self.dvd_menu_audio = dvd_menu_audio
+        has_labels = [i for i in button_labels if i]
+        if not has_labels:
+            label_line_height = 0
         self.bg = BG(bg_img, button_imgs, 
                      button_labels=button_labels,
                      out_dir=out_dir, out_name=out_name,
@@ -711,8 +800,13 @@ class DVD (object):
                  ar_threshold=1.38,
                  # menu options
                  dvd_menu_ar=None,
-                 with_menu_labels=True, 
-                 menu_label_line_height=18,
+                 with_menu_labels=False, 
+                 label_line_height=None,
+                 label_lines=None,
+                 label_padding=None,
+                 outer_padding=None,
+                 inner_padding=None,
+                 menu_audio=None,
                  no_loop_menu=True):
         self.uid = str(id(self))
         # input 
@@ -759,7 +853,12 @@ class DVD (object):
         # menu options
         self.dvd_menu_ar=dvd_menu_ar
         self.with_menu_labels=with_menu_labels 
-        self.menu_label_line_height=menu_label_line_height
+        self.label_line_height=label_line_height
+        self.label_lines = label_lines
+        self.label_padding = label_padding
+        self.outer_padding = outer_padding
+        self.inner_padding = inner_padding
+        self.menu_audio = menu_audio
         self.no_loop_menu=no_loop_menu
         #-------------------------------
         if self.dvd_menu_ar is None:
@@ -834,7 +933,7 @@ class DVD (object):
         
         # out dirs
         if not self.out_dir:
-            self.out_dir = os.path.join(os.getcwd(), PROG_NAME, self.uid)
+            self.out_dir = os.path.join(os.getcwd(), self.out_name)
         self.out_dvd_dir = os.path.join(self.out_dir, 'DVD')
         self.out_files_dir = os.path.join(self.out_dir, 'files')
         self.out_dvd_xml = os.path.join(self.out_files_dir, 
@@ -1315,12 +1414,30 @@ class DVD (object):
         log_items(heading='Making DVD Menu...', items=False)
         if not self.with_menu_labels:
             self.menu_label_line_height = 0
-        self.menu = DVDMenu(self.menu_bg, self.menu_imgs, 
+        menu_args = {}
+        menu_attrs = ['label_line_height',
+                      'label_lines',
+                      'label_padding',
+                      'outer_padding',
+                      'inner_padding',
+                      'menu_audio']
+        for k in menu_attrs:
+            v = getattr(self, k)
+            if v is not None:
+                menu_args[k] = v
+        #~ self.menu = DVDMenu(self.menu_bg, self.menu_imgs, 
+                            #~ button_labels=self.menu_labels, 
+                            #~ label_line_height=self.menu_label_line_height,
+                            #~ out_dir=self.out_files_dir,
+                            #~ out_name=self.out_name,
+                            #~ dvd_menu_ar=self.dvd_menu_ar)
+        self.menu = DVDMenu(self.menu_bg, 
+                            self.menu_imgs, 
                             button_labels=self.menu_labels, 
-                            label_line_height=self.menu_label_line_height,
                             out_dir=self.out_files_dir,
                             out_name=self.out_name,
-                            dvd_menu_ar=self.dvd_menu_ar)
+                            dvd_menu_ar=self.dvd_menu_ar,
+                            **menu_args)
     
     def encode_video(self):
         # TODO: self.vids[n]['in'] is now a list of paths 

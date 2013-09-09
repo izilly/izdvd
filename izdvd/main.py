@@ -149,8 +149,24 @@ def get_options():
                            help="This option adds labels below the menu-imgs even if none are specified with the --menu-imgs option. The labels are based on the video filenames unless the --label_from_img or --label_from_img options are present.")
 
     menu_opts.add_argument('--label-line-height', type=int, metavar='PX', 
-                           dest='menu_label_line_height', default=18,
+                           default=18,
                            help="Line height in pixels for the menu-labels. (default: %(default)s)")
+
+    menu_opts.add_argument('--label-lines', type=int, metavar='N', 
+                           default=2,
+                           help="Max number of lines for the menu-labels. Text will be ellipsized if it would require more than this many lines. (default: %(default)s)")
+
+    menu_opts.add_argument('--outer-padding', type=int, metavar='PX', 
+                           default=80,
+                           help="Padding in pixels between the edge of the menu background and the menu buttons. (default: %(default)s)")
+
+    menu_opts.add_argument('--inner-padding', type=int, metavar='PX', 
+                           default=40,
+                           help="Padding in pixels between each menu button. (default: %(default)s)")
+
+    menu_opts.add_argument('--label-padding', type=int, metavar='PX', 
+                           default=5,
+                           help="Padding in pixels between the menu buttons and labels. (default: %(default)s)")
 
     menu_opts.add_argument('--no-loop-menu', action='store_true', default=False, 
                            help="Normally the menu plays in a loop until a title is selected.  With this option the menu plays once and then starts playing the first title.")
@@ -209,7 +225,11 @@ def make_dvd(options):
               # menu options
               dvd_menu_ar=options.dvd_menu_ar,
               with_menu_labels=options.with_menu_labels, 
-              menu_label_line_height=options.menu_label_line_height,
+              label_line_height=options.label_line_height,
+              label_lines = options.label_lines,
+              label_padding = options.label_padding,
+              outer_padding = options.outer_padding,
+              inner_padding = options.inner_padding,
               no_loop_menu=True)
 
 def main(mode='dvd'):
