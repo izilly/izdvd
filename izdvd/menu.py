@@ -98,17 +98,29 @@ def get_space_available(path):
 
 
 class BG (object):
-    def __init__(self, bg_img, button_imgs, 
-                 button_labels=None, 
-                 out_dir=None, out_name=None,
-                 border_px=5, border_color='white', 
-                 highlight_color='#56B356', select_color='red',
-                 label_line_height=0, label_lines=2, 
-                 label_padding=5, outer_padding=30, inner_padding=30, 
-                 width=None, height=None, display_ar=None,
-                 shadow_sigma=3, shadow_x_offset=5, shadow_y_offset=5):
-        self.bg_img = Img(bg_img)
-        self.button_imgs = [Img(i) for i in button_imgs]
+    def __init__(self, 
+                 menu_bg, 
+                 menu_imgs, 
+                 menu_labels=None, 
+                 out_dir=None, 
+                 out_name=None,
+                 border_px=5, 
+                 border_color='white', 
+                 highlight_color='#56B356', 
+                 select_color='red',
+                 label_line_height=0, 
+                 label_lines=2, 
+                 label_padding=5, 
+                 outer_padding=30, 
+                 inner_padding=30, 
+                 width=None, 
+                 height=None, 
+                 display_ar=None,
+                 shadow_sigma=3, 
+                 shadow_x_offset=5, 
+                 shadow_y_offset=5):
+        self.bg_img = Img(menu_bg)
+        self.button_imgs = [Img(i) for i in menu_imgs]
         self.out_dir = out_dir
         self.out_name = out_name
         self.border_px = border_px
@@ -116,7 +128,7 @@ class BG (object):
         self.highlight_color = highlight_color
         self.select_color = select_color
         self.setup_out_dir()
-        self.button_labels = button_labels
+        self.menu_labels = menu_labels
         self.label_line_height = label_line_height
         self.label_lines = label_lines
         self.label_padding = label_padding
@@ -423,12 +435,12 @@ class BG (object):
         '''Create images for each label to be placed alongside the button 
         images.
         '''
-        if not self.button_labels or not self.label_line_height > 0:
+        if not self.menu_labels or not self.label_line_height > 0:
             self.label_imgs = None
             return False
         button_w = max([i.get_width() for i in self.button_imgs])
         labels = []
-        for i in self.button_labels:
+        for i in self.menu_labels:
             img = TextImg(i, line_height=self.label_line_height, 
                                   max_width=button_w, 
                                   max_lines=self.label_lines,
@@ -554,7 +566,7 @@ class DVDMenu (object):
         if not has_labels:
             label_line_height = 0
         self.bg = BG(menu_bg, menu_imgs, 
-                     button_labels=menu_labels,
+                     menu_labels=menu_labels,
                      out_dir=out_dir, out_name=out_name,
                      label_line_height=label_line_height, 
                      label_lines=label_lines, 
