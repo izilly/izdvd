@@ -104,8 +104,9 @@ class BG (object):
                  menu_imgs, 
                  menu_labels=None,
                  # output paths 
-                 out_dir=None, 
                  out_name=None,
+                 out_dir=None,
+                 tmp_dir=None,
                  # ---------------bg opts --------------------
                  # padding
                  outer_padding=30, 
@@ -133,12 +134,13 @@ class BG (object):
         self.button_imgs = [Img(i) for i in menu_imgs]
         self.out_dir = out_dir
         self.out_name = out_name
+        self.tmp_dir = tmp_dir
         self.button_border_thickness = button_border_thickness
         self.button_border_color = button_border_color
         self.button_highlight_color = button_highlight_color
         self.button_highlight_thickness = button_highlight_thickness
         self.button_select_color = button_select_color
-        self.setup_out_dir()
+        self.get_out_paths()
         self.menu_labels = menu_labels
         self.label_line_height = label_line_height
         self.label_lines = label_lines
@@ -180,35 +182,21 @@ class BG (object):
         self.overlay_buttons()
         dd = 1
     
-    def setup_out_dir(self):
-        # output directory
-        if self.out_dir is None:
-            out_dir = os.getcwd()
-        else:
-            out_dir = self.out_dir
-            if not os.path.exists(out_dir):
-                os.makedirs(out_dir)
-        # output name
-        if self.out_name is None:
-            out_time = datetime.now().strftime('%Y.%m.%d-%H%M%S')
-            out_name = 'DVD_menu_{}'.format(out_time)
-        else:
-            out_name = self.out_name
-        # file paths
-        self.out_path = os.path.join(out_dir, out_name)
-        self.out_dir = out_dir
-        self.out_name = out_name
-        self.path_bg_img = '{}_bg.png'.format(self.out_path)
-        self.path_hl_img = '{}_hl.png'.format(self.out_path)
-        self.path_sl_img = '{}_sl.png'.format(self.out_path)
+    def get_out_paths(self):
+        paths = utils.get_out_paths(PROG_NAME, self.out_name, self.out_dir,
+                                    self.tmp_dir, 50*1024*1024)
+        self.out_name, self.out_dir, self.tmp_dir = paths
+        self.out_files_dir = os.path.join(self.out_dir, 'files')
+        fdir = self.out_files_dir
+        out_name = self.out_name
         
-        self.path_bg_m2v = '{}_bg.m2v'.format(self.out_path)     # menu-bg.m2v
-        self.path_bg_ac3 = '{}_bg.ac3'.format(self.out_path)     # menu_audio.ac3
-        self.path_bg_mpg = '{}_bg.mpg'.format(self.out_path)     # menu-bg.mpg
-        self.path_menu_mpg = '{}_menu.mpg'.format(self.out_path) # menu.mpg
-        self.path_menu_xml = '{}_menu.xml'.format(self.out_path) # menu.xml
-        self.path_dvd_xml = '{}_dvd.xml'.format(self.out_path)   # dvd.xml
-        #~ self.path_dvd_dir    VIDEO_TS
+        self.path_bg_img = os.path.join(fdir, '{}_bg.png'.format(out_name))
+        self.path_hl_img = os.path.join(fdir, '{}_hl.png'.format(out_name))
+        self.path_sl_img = os.path.join(fdir, '{}_sl.png'.format(out_name))
+        self.path_hl_lb_img = os.path.join(fdir, 
+                                           '{}_hl_lb.png'.format(out_name))
+        self.path_sl_lb_img = os.path.join(fdir, 
+                                           '{}_sl_lb.png'.format(out_name))
     
     def calc_cell_ar(self):
         '''Gets the most common aspect ratio of all button images.
@@ -555,6 +543,7 @@ class DVDMenu (object):
                  menu_labels=None, 
                  out_dir=None, 
                  out_name=None,
+                 tmp_dir=None,
                  label_line_height=18, 
                  label_lines=2, 
                  label_padding=5, 
@@ -575,6 +564,7 @@ class DVDMenu (object):
         display_ar = width / height
         self.out_dir = out_dir
         self.out_name = out_name
+        self.tmp_dir = tmp_dir
         self.dvd_format = dvd_format
         self.menu_ar = menu_ar
         self.menu_audio = menu_audio
@@ -592,7 +582,7 @@ class DVDMenu (object):
                      width=width, height=height, 
                      #~ display_ar=menu_ar)
                      display_ar=display_ar)
-        self.setup_out_dir()
+        self.get_out_paths()
         self.bg.bg_img.resize(720, height, ignore_aspect=True)
         self.bg.highlight_img.resize(720, height, ignore_aspect=True,
                                      no_antialias=True, no_dither=True, 
@@ -625,7 +615,32 @@ class DVDMenu (object):
         #~ self.multiplex_buttons()
         self.create_menu_mpg()
     
-    def setup_out_dir(self):
+    def get_out_paths(self):
+        paths = utils.get_out_paths(PROG_NAME, self.out_name, self.out_dir,
+                                    self.tmp_dir, 150*1024*1024)
+        self.out_name, self.out_dir, self.tmp_dir = paths
+        self.out_files_dir = os.path.join(self.out_dir, 'files')
+        fdir = self.out_files_dir
+        out_name = self.out_name
+        
+        self.path_bg_img = os.path.join(fdir, '{}_bg.png'.format(out_name))
+        self.path_hl_img = os.path.join(fdir, '{}_hl.png'.format(out_name))
+        self.path_sl_img = os.path.join(fdir, '{}_sl.png'.format(out_name))
+        self.path_hl_lb_img = os.path.join(fdir, 
+                                           '{}_hl_lb.png'.format(out_name))
+        self.path_sl_lb_img = os.path.join(fdir, 
+                                           '{}_sl_lb.png'.format(out_name))
+        self.path_menu_lb_mpg = os.path.join(fdir, 
+                                             '{}_menu_lb.mpg'.format(out_name))        
+        self.path_bg_m2v = os.path.join(fdir, '{}_bg.m2v'.format(out_name))
+        self.path_bg_ac3 = os.path.join(fdir, '{}_bg.ac3'.format(out_name))
+        self.path_bg_mpg = os.path.join(fdir, '{}_bg.mpg'.format(out_name))
+        self.path_menu_mpg = os.path.join(fdir, '{}_menu.mpg'.format(out_name))
+        self.path_menu_xml = os.path.join(fdir, '{}_menu.xml'.format(out_name))
+        self.path_menu_lb_xml = os.path.join(fdir, 
+                                             '{}_menu_lb.xml'.format(out_name))
+
+
         # output directory
         if self.out_dir is None:
             out_dir = os.getcwd()
@@ -936,7 +951,7 @@ class DVD (object):
         self.get_menu_imgs()
         self.get_menu_labels()
         self.get_subs()
-        self.get_out_files()
+        self.get_out_paths()
         #~ self.get_out_files(out_name, out_dvd_dir, out_files_dir, tmp_dir)
         #~ self.get_in_files(in_vids, in_dirs, menu_imgs, menu_labels, menu_bg,
                           #~ in_srts)
@@ -961,31 +976,18 @@ class DVD (object):
         if self.with_author_dvd:
             self.author_dvd()
     
-    def get_out_files(self):
-        # name
-        if not self.out_name:
-            out_time = datetime.now().strftime('%Y.%m.%d-%H%M%S')
-            self.out_name = '{}_{}'.format(PROG_NAME, out_time)
+    def get_out_paths(self):
         
-        # out dirs
-        if not self.out_dir:
-            self.out_dir = os.path.join(os.getcwd(), self.out_name)
+        paths = utils.get_out_paths(PROG_NAME, self.out_name, self.out_dir,
+                                    self.tmp_dir, self.dvd_size_bytes * 1.2)
+        self.out_name, self.out_dir, self.tmp_dir = paths
+        
         self.out_dvd_dir = os.path.join(self.out_dir, 'DVD')
         self.out_files_dir = os.path.join(self.out_dir, 'files')
         self.out_dvd_xml = os.path.join(self.out_files_dir, 
                                         '{}_dvd.xml'.format(self.out_name))
         self.out_log = os.path.join(self.out_files_dir, 
                                     '{}.log'.format(self.out_name))
-        
-        # tmp_dir
-        if not self.tmp_dir:
-            tmp = tempfile.gettempdir()
-            tmp_free = get_space_available(tmp)
-            if tmp_free > self.dvd_size_bytes * 1.05:
-                self.tmp_dir = os.path.join(tmp, PROG_NAME, self.uid)
-            else:
-                self.tmp_dir = os.path.join(self.out_dir, 'tmp')
-        
         # make dirs if they don't exist
         for i in [self.out_dvd_dir, self.out_files_dir, self.tmp_dir]:
             if not os.path.exists(i):

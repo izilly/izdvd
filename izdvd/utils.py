@@ -8,6 +8,8 @@
 
 import os.path
 import argparse
+import tempfile
+
 
 def read_file(path):
     with open(path) as f:
@@ -38,7 +40,37 @@ def get_commonprefix(paths, sep='/'):
         return cp
     else:
         return cp.rpartition(sep)[0]
-        
+
+def get_space_available(path):
+    s = os.statvfs(path)
+    return s.f_frsize * s.f_bavail
+
+def get_out_paths(prog_name, out_name, out_dir, tmp_dir, tmp_required_space):
+    # name
+    if not out_name:
+        out_time = datetime.now().strftime('%Y.%m.%d-%H%M%S')
+        out_name = '{}_{}'.format(prog_name, out_time)
+    
+    # out dirs
+    if not out_dir:
+        out_dir = os.path.join(os.getcwd(), out_name)
+    
+    # tmp_dir
+    if not tmp_dir:
+        tmp = tempfile.gettempdir()
+        tmp_free = get_space_available(tmp)
+        if tmp_free > tmp_required_space:
+            tmp_dir = os.path.join(tmp, prog_name, out_name)
+        else:
+            tmp_dir = os.path.join(out_dir, 'tmp')
+    
+    # make dirs if they don't exist
+    for i in [out_dir, tmp_dir]:
+        if not os.path.exists(i):
+            os.makedirs(i)
+    
+    return out_name, out_dir, tmp_dir
+
 
 class HelpFormatter(argparse.HelpFormatter):
     def __init__(self,
