@@ -99,34 +99,45 @@ def get_space_available(path):
 
 class BG (object):
     def __init__(self, 
+                 # input paths
                  menu_bg, 
                  menu_imgs, 
-                 menu_labels=None, 
+                 menu_labels=None,
+                 # output paths 
                  out_dir=None, 
                  out_name=None,
-                 border_px=5, 
-                 border_color='white', 
-                 highlight_color='#56B356', 
-                 select_color='red',
-                 label_line_height=0, 
-                 label_lines=2, 
-                 label_padding=5, 
+                 # ---------------bg opts --------------------
+                 # padding
                  outer_padding=30, 
-                 inner_padding=30, 
+                 inner_padding=30,
+                 label_padding=5, 
+                 # size/shape 
                  width=None, 
                  height=None, 
+                 menu_ar=None,
                  display_ar=None,
+                 # buttons
+                 button_border_color='white', 
+                 button_border_thickness=5, 
+                 button_highlight_color='#56B356', 
+                 button_highlight_thickness=10,
+                 button_select_color='red',
                  shadow_sigma=3, 
                  shadow_x_offset=5, 
-                 shadow_y_offset=5):
+                 shadow_y_offset=5,
+                 # labels
+                 label_line_height=0, 
+                 label_lines=2
+                 ):
         self.bg_img = Img(menu_bg)
         self.button_imgs = [Img(i) for i in menu_imgs]
         self.out_dir = out_dir
         self.out_name = out_name
-        self.border_px = border_px
-        self.border_color = border_color
-        self.highlight_color = highlight_color
-        self.select_color = select_color
+        self.button_border_thickness = button_border_thickness
+        self.button_border_color = button_border_color
+        self.button_highlight_color = button_highlight_color
+        self.button_highlight_thickness = button_highlight_thickness
+        self.button_select_color = button_select_color
         self.setup_out_dir()
         self.menu_labels = menu_labels
         self.label_line_height = label_line_height
@@ -147,7 +158,10 @@ class BG (object):
             self.height = height
         self.bg_img.resize(self.width, self.height, ignore_aspect=True)
         self.storage_ar = self.width / self.height
-        if display_ar is None:
+        self.menu_ar = menu_ar
+        if self.menu_ar:
+            self.display_ar = self.menu_ar
+        elif display_ar is None:
             self.display_ar = self.storage_ar
         else:
             self.display_ar = display_ar
@@ -421,13 +435,15 @@ class BG (object):
             #~ i.resize(self.cell_w, self.cell_h)
             hl = i.new_canvas()
             hl.border(1, shave=True)
-            hl.border(self.border_px*2, self.highlight_color)
+            hl.border(self.button_highlight_thickness, 
+                      self.button_highlight_color)
             i.highlight = hl
             sl = i.new_canvas()
             sl.border(1, shave=True)
-            sl.border(self.border_px*2, self.select_color)
+            sl.border(self.button_highlight_thickness, 
+                      self.button_select_color)
             i.select = sl
-            i.border(self.border_px, self.border_color)
+            i.border(self.button_border_thickness, self.button_border_color)
             #~ i.append([self.label_bg], padding=self.label_padding)
             #~ i.drop_shadow()
     
