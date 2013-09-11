@@ -130,44 +130,38 @@ class BG (object):
                  label_line_height=0, 
                  label_lines=2
                  ):
-        self.bg_img = Img(menu_bg)
-        self.button_imgs = [Img(i) for i in menu_imgs]
-        self.out_dir = out_dir
-        self.out_name = out_name
-        self.tmp_dir = tmp_dir
-        self.button_border_thickness = button_border_thickness
-        self.button_border_color = button_border_color
-        self.button_highlight_color = button_highlight_color
-        self.button_highlight_thickness = button_highlight_thickness
-        self.button_select_color = button_select_color
-        self.get_out_paths()
+        # input paths
+        self.menu_bg = menu_bg
+        self.menu_imgs = menu_imgs
         self.menu_labels = menu_labels
-        self.label_line_height = label_line_height
-        self.label_lines = label_lines
+        # output paths        
+        self.out_name = out_name
+        self.out_dir = out_dir
+        self.tmp_dir = tmp_dir
+        # padding
         self.label_padding = label_padding
         self.outer_padding = outer_padding
         self.inner_padding = inner_padding
+        # size/shape
+        self.width = width
+        self.height = height
+        self.menu_ar = menu_ar
+        self.display_ar = display_ar
+        # buttons
+        self.button_border_color = button_border_color
+        self.button_border_thickness = button_border_thickness
+        self.button_highlight_color = button_highlight_color
+        self.button_highlight_thickness = button_highlight_thickness
+        self.button_select_color = button_select_color
         self.shadow_sigma = shadow_sigma
         self.shadow_x_offset = shadow_x_offset
         self.shadow_y_offset = shadow_y_offset
-        if width is None:
-            self.width = self.bg_img.width
-        else:
-            self.width = width
-        if height is None:
-            self.height = self.bg_img.height
-        else:
-            self.height = height
-        self.bg_img.resize(self.width, self.height, ignore_aspect=True)
-        self.storage_ar = self.width / self.height
-        self.menu_ar = menu_ar
-        if self.menu_ar:
-            self.display_ar = self.menu_ar
-        elif display_ar is None:
-            self.display_ar = self.storage_ar
-        else:
-            self.display_ar = display_ar
-        self.multiplier = self.storage_ar / self.display_ar
+        # labels
+        self.label_line_height = label_line_height
+        self.label_lines = label_lines
+        #---------
+        self.get_out_paths()
+        self.get_imgs()
         self.cells = len(self.button_imgs)
         #
         self.create_labels()
@@ -180,7 +174,24 @@ class BG (object):
         self.apply_shadows()
         self.get_cell_locations()
         self.overlay_buttons()
-        dd = 1
+        self.resize_imgs()
+        self.write()
+    
+    def get_imgs(self):
+        self.button_imgs = [Img(i) for i in self.menu_imgs]
+        self.bg_img = Img(self.menu_bg)
+        bg_width = self.bg_img.get_width()
+        bg_height = self.bg_img.get_height()
+        if self.width is None:
+            self.width = bg_width
+        if self.height is None:
+            self.height = bg_height
+        if bg_width != self.width or bg_height != self.height:
+            self.bg_img.resize(self.width, self.height, ignore_aspect=True)
+        self.storage_ar = self.width / self.height
+        if self.display_ar is None:
+            self.display_ar = self.storage_ar
+        self.multiplier = self.storage_ar / self.display_ar
     
     def get_out_paths(self):
         paths = utils.get_out_paths(PROG_NAME, self.out_name, self.out_dir,
@@ -312,42 +323,6 @@ class BG (object):
         # return area, cell_width, cell_height
         return cell_w*cell_h, math.floor(cell_w), math.floor(cell_h)
     
-    def old_calculate_shadow_padding(self):
-        '''
-        Calculates the increase in size that will result from applying
-        a drop shadow to the button images.
-        
-        The sigma option increases the size by 2*sigma in all four directions,
-        but along 2 of the images 4 edges, this increase can be reduced by 
-        the x_offset and y_offset options.  
-        
-        Basically, a new image will be created that is 2*sigma larger in all 
-        four directions, then that image will be layered below the original
-        image, aligned according to x and y offsets.  So with a zero offset
-        in a given direction, the image would grow by 4*sigma (2*sigma on both
-        sides) but any non-zero offset will cause one side to grow by 2*sigma
-        and the other to grow an amount between 0 and 2*sigma (if the offset 
-        in that given direction is greater than or equal to 2*sigma, then it 
-        would be 0, because it cannot shrink, else it would be 2*sigma minus
-        the offset).
-        '''
-        
-        x_offset_padding = abs(self.shadow_x_offset)
-        y_offset_padding = abs(self.shadow_y_offset)
-        sigma_padding = self.shadow_sigma * 2
-        sigma_padding_large = sigma_padding
-        x_sigma_padding_small = max([sigma_padding - x_offset_padding, 0])
-        y_sigma_padding_small = max([sigma_padding - y_offset_padding, 0])
-        #
-        x_padding = (x_offset_padding
-                     + sigma_padding_large
-                     + x_sigma_padding_small)
-        y_padding = (y_offset_padding
-                     + sigma_padding_large
-                     + y_sigma_padding_small)
-        shadow_padding = (x_padding, y_padding)
-        return shadow_padding
-
     def calculate_shadow_padding(self):
         '''
         Calculates the increase in size that will result from applying
@@ -432,8 +407,6 @@ class BG (object):
                       self.button_select_color)
             i.select = sl
             i.border(self.button_border_thickness, self.button_border_color)
-            #~ i.append([self.label_bg], padding=self.label_padding)
-            #~ i.drop_shadow()
     
     def create_labels(self):
         '''Create images for each label to be placed alongside the button 
@@ -450,13 +423,11 @@ class BG (object):
                                   max_lines=self.label_lines,
                                   strokewidth=4)
             labels.append(img)
-        height = max([i.get_height() for i in labels])
-        self.label_height = height
+        self.label_height = max([i.get_height() for i in labels])
         for i in labels:
-            if i.get_height() < height:
-                i.pad_to(new_w=i.get_width(), new_h=height)
+            if i.get_height() < self.label_height:
+                i.pad_to(new_w=i.get_width(), new_h=self.label_height)
         self.label_imgs = labels
-        #~ self.label_bg = CanvasImg(button_w, self.label_line_height, 'red')
     
     def append_labels(self):
         '''Appends label images to button images to create a new image 
@@ -488,7 +459,10 @@ class BG (object):
         label_height = self.label_height
         shadow_padding = self.calculate_shadow_padding()
         cell_w = self.cell_w + shadow_padding['x']
-        cell_h = self.cell_h + label_height + self.label_padding + shadow_padding['y']
+        # TODO: ensure cell_h is correct when no labels; i.e., 
+        # label_height/label_padding needs to be zero if there is no label.
+        cell_h = (self.cell_h + label_height 
+                  + self.label_padding + shadow_padding['y'])
         bg_w = self.width
         bg_h = self.height
         total_cells = list(range(cells))
@@ -512,28 +486,48 @@ class BG (object):
     def overlay_buttons(self):
         '''Overlays the buttons onto the background image.
         '''
-        hl = self.bg_img.new_canvas()
-        sl = self.bg_img.new_canvas()
+        self.highlight_img = self.bg_img.new_canvas()
+        self.select_img = self.bg_img.new_canvas()
         for i,cell in enumerate(self.cell_locations):
             b = self.button_imgs[i]
             x = cell['x0'] + b.x_padding
             y = cell['y0'] + b.y_padding
             self.bg_img.new_layer(b, x, y, True)
-            hl.new_layer(b.highlight, x, y, True)
-            sl.new_layer(b.select, x, y, True)
-        self.highlight_img = hl
-        self.select_img = sl
+            self.highlight_img.new_layer(b.highlight, x, y, True)
+            self.select_img.new_layer(b.select, x, y, True)
     
-    def write_bg(self, out_file_bg=None, out_file_hl=None, out_file_sl=None):
+    def resize_imgs(self):
+        self.bg_img.resize(width=720, ignore_aspect=True)
+        if self.menu_ar == 16/9:
+            self.highlight_lb_img = Img(self.highlight_img.path)
+            self.select_lb_img = Img(self.select_img.path)
+            for img in [self.highlight_lb_img, self.select_lb_img]:
+                img.resize(width=720, height=360, ignore_aspect=True,
+                           remap=True, no_antialias=True, no_dither=True)
+                img.pad_to(new_h=480)
+        for img in [self.highlight_img, self.select_img]:
+            img.resize(width=720, ignore_aspect=True, remap=True, 
+                       no_antialias=True, no_dither=True)
+    
+    def write(self, out_file_bg=None, out_file_hl=None, out_file_sl=None,
+                 out_file_hl_lb=None, out_file_sl_lb=None):
+        # TODO: write letterboxed highlight/select images when menu_ar is 16:9
         if out_file_bg is None:
             out_file_bg = self.path_bg_img
         if out_file_hl is None:
             out_file_hl = self.path_hl_img
         if out_file_sl is None:
             out_file_sl = self.path_sl_img
+        if out_file_hl_lb is None:
+            out_file_hl_lb = self.path_hl_lb_img
+        if out_file_sl_lb is None:
+            out_file_sl_lb = self.path_sl_lb_img
         self.bg_img.write(out_file=out_file_bg)
         self.highlight_img.write(out_file=out_file_hl)
         self.select_img.write(out_file=out_file_sl)
+        if self.menu_ar == 16/9:
+            self.highlight_lb_img.write(out_file=out_file_hl_lb)
+            self.select_lb_img.write(out_file=out_file_sl_lb)
 
 
 class DVDMenu (object):
@@ -541,8 +535,8 @@ class DVDMenu (object):
                  menu_imgs, 
                  menu_bg=None,
                  menu_labels=None, 
-                 out_dir=None, 
                  out_name=None,
+                 out_dir=None, 
                  tmp_dir=None,
                  label_line_height=18, 
                  label_lines=2, 
@@ -552,67 +546,26 @@ class DVDMenu (object):
                  menu_ar=4/3, 
                  menu_audio=None,
                  dvd_format='NTSC'):
-        #~ width = 720
-        if menu_ar == 4/3:
-            width = 640
-        else:
-            width = 854
-        if dvd_format == 'NTSC':
-            height = 480
-        elif self.dvd_format == 'PAL':
-            height = 576
-        display_ar = width / height
-        self.out_dir = out_dir
+        self.menu_imgs = menu_imgs
+        self.menu_bg = menu_bg
+        self.menu_labels = menu_labels
         self.out_name = out_name
+        self.out_dir = out_dir
         self.tmp_dir = tmp_dir
-        self.dvd_format = dvd_format
+        self.label_line_height = label_line_height
+        self.label_lines = label_lines
+        self.label_padding = label_padding
+        self.outer_padding = outer_padding
+        self.inner_padding = inner_padding
         self.menu_ar = menu_ar
         self.menu_audio = menu_audio
-        has_labels = [i for i in menu_labels if i]
-        if not has_labels:
-            label_line_height = 0
-        self.bg = BG(menu_bg, menu_imgs, 
-                     menu_labels=menu_labels,
-                     out_dir=out_dir, out_name=out_name,
-                     label_line_height=label_line_height, 
-                     label_lines=label_lines, 
-                     label_padding=label_padding, 
-                     outer_padding=outer_padding, 
-                     inner_padding=inner_padding, 
-                     width=width, height=height, 
-                     #~ display_ar=menu_ar)
-                     display_ar=display_ar)
+        self.dvd_format = dvd_format
+        #-----------------
         self.get_out_paths()
-        self.bg.bg_img.resize(720, height, ignore_aspect=True)
-        self.bg.highlight_img.resize(720, height, ignore_aspect=True,
-                                     no_antialias=True, no_dither=True, 
-                                     remap=True)
-        self.bg.select_img.resize(720, height, ignore_aspect=True, 
-                                  no_antialias=True, no_dither=True, 
-                                     remap=True)
-        self.bg.write_bg(out_file_bg=self.path_bg_img, 
-                      out_file_hl=self.path_hl_img,
-                      out_file_sl=self.path_sl_img)
-        if self.menu_ar == 16/9:
-            self.bg.highlight_lb_img = Img(self.path_hl_img)
-            self.bg.select_lb_img = Img(self.path_sl_img)
-            
-            self.bg.highlight_lb_img.resize(720, 360, ignore_aspect=True, 
-                                            no_antialias=True, no_dither=True, 
-                                         remap=True)
-            self.bg.select_lb_img.resize(720, 360, ignore_aspect=True, 
-                                         no_antialias=True, no_dither=True, 
-                                         remap=True)
-            self.bg.highlight_lb_img.pad_to(new_h=480)
-            self.bg.select_lb_img.pad_to(new_h=480)
-            
-            self.bg.highlight_lb_img.write(out_file=self.path_hl_lb_img)
-            self.bg.select_lb_img.write(out_file=self.path_sl_lb_img)
-        
+        self.get_bg()
         self.convert_to_m2v()
         self.convert_audio()
         self.multiplex_audio()
-        #~ self.multiplex_buttons()
         self.create_menu_mpg()
     
     def get_out_paths(self):
@@ -622,14 +575,6 @@ class DVDMenu (object):
         self.out_files_dir = os.path.join(self.out_dir, 'files')
         fdir = self.out_files_dir
         out_name = self.out_name
-        
-        self.path_bg_img = os.path.join(fdir, '{}_bg.png'.format(out_name))
-        self.path_hl_img = os.path.join(fdir, '{}_hl.png'.format(out_name))
-        self.path_sl_img = os.path.join(fdir, '{}_sl.png'.format(out_name))
-        self.path_hl_lb_img = os.path.join(fdir, 
-                                           '{}_hl_lb.png'.format(out_name))
-        self.path_sl_lb_img = os.path.join(fdir, 
-                                           '{}_sl_lb.png'.format(out_name))
         self.path_menu_lb_mpg = os.path.join(fdir, 
                                              '{}_menu_lb.mpg'.format(out_name))        
         self.path_bg_m2v = os.path.join(fdir, '{}_bg.m2v'.format(out_name))
@@ -639,41 +584,34 @@ class DVDMenu (object):
         self.path_menu_xml = os.path.join(fdir, '{}_menu.xml'.format(out_name))
         self.path_menu_lb_xml = os.path.join(fdir, 
                                              '{}_menu_lb.xml'.format(out_name))
-
-
-        # output directory
-        if self.out_dir is None:
-            out_dir = os.getcwd()
+    def get_bg(self):
+        if self.menu_ar == 4/3:
+            self.width = 640
         else:
-            out_dir = self.out_dir
-            if not os.path.exists(out_dir):
-                os.makedirs(out_dir)
-        # output name
-        if self.out_name is None:
-            out_time = datetime.now().strftime('%Y.%m.%d-%H%M%S')
-            out_name = 'DVD_menu_{}'.format(out_time)
-        else:
-            out_name = self.out_name
-        # file paths
-        self.out_path = os.path.join(out_dir, out_name)
-        self.out_dir = out_dir
-        self.out_name = out_name
-        self.path_bg_img = '{}_bg.png'.format(self.out_path)
-        self.path_hl_img = '{}_hl.png'.format(self.out_path)
-        self.path_sl_img = '{}_sl.png'.format(self.out_path)
-        if self.menu_ar == 16/9:
-            self.path_hl_lb_img = '{}_hl_lb.png'.format(self.out_path)
-            self.path_sl_lb_img = '{}_sl_lb.png'.format(self.out_path)
-            self.path_menu_lb_mpg = '{}_menu_lb.mpg'.format(self.out_path)
-            self.path_menu_lb_xml = '{}_menu_lb.xml'.format(self.out_path)
-        self.path_bg_m2v = '{}_bg.m2v'.format(self.out_path)     # menu-bg.m2v
-        self.path_bg_ac3 = '{}_bg.ac3'.format(self.out_path)     # menu_audio.ac3
-        self.path_bg_mpg = '{}_bg.mpg'.format(self.out_path)     # menu-bg.mpg
-        self.path_menu_mpg = '{}_menu.mpg'.format(self.out_path) # menu.mpg
-        self.path_menu_xml = '{}_menu.xml'.format(self.out_path) # menu.xml
-        self.path_dvd_xml = '{}_dvd.xml'.format(self.out_path)   # dvd.xml
-        #~ self.path_dvd_dir    VIDEO_TS
-
+            self.width = 854
+        if self.dvd_format == 'NTSC':
+            self.height = 480
+        elif self.dvd_format == 'PAL':
+            self.height = 576
+        #~ display_ar = width / height
+        has_labels = [i for i in self.menu_labels if i]
+        if not has_labels:
+            self.label_line_height = 0
+        self.bg = BG(menu_bg=self.menu_bg, 
+                     menu_imgs=self.menu_imgs, 
+                     menu_labels=self.menu_labels,
+                     out_name=self.out_name,
+                     out_dir=self.out_dir, 
+                     tmp_dir=self.tmp_dir,
+                     outer_padding=self.outer_padding, 
+                     inner_padding=self.inner_padding, 
+                     label_padding=self.label_padding, 
+                     width=self.width, 
+                     height=self.height, 
+                     menu_ar=self.menu_ar,
+                     label_line_height=self.label_line_height, 
+                     label_lines=self.label_lines)
+    
     def convert_to_m2v(self, frames=360):
         frames = str(frames)
         if self.dvd_format == 'PAL':
@@ -688,7 +626,7 @@ class DVDMenu (object):
             aspect = '3'
         else:
             aspect = '2'
-        p1 = subprocess.Popen(['convert', self.path_bg_img, 'ppm:-'], 
+        p1 = subprocess.Popen(['convert', self.bg.path_bg_img, 'ppm:-'], 
                               stdout=subprocess.PIPE)
         p2 = subprocess.Popen(['ppmtoy4m', '-n', frames, '-F', framerate, 
                                '-A', pixel_aspect, '-I', 'p', '-r', 
@@ -727,56 +665,23 @@ class DVDMenu (object):
                self.path_bg_ac3]
         o = subprocess.check_output(cmd, universal_newlines=True)
     
-    #def create_menu_mpg(self):
-        ##~ self.buttons = []
-        #subpictures = etree.Element('subpictures')
-        #stream = etree.SubElement(subpictures, 'stream')
-        #spu = etree.SubElement(stream, 'spu')
-        #spu.set('start', '00:00:00.0')
-        #spu.set('highlight', self.path_hl_img)
-        #spu.set('select', self.path_sl_img)
-        #spu.set('autooutline', 'infer')
-        #spu.set('autoorder', 'rows')
-        #for n,i in enumerate(self.bg.cell_locations):
-            #b_name = 'b{}'.format(n)
-            #self.buttons.append(b_name)
-            ##~ b = etree.SubElement(spu, 'button')
-            ##~ b.set('name', b_name)
-            ##~ x0 = i['x0'] - self.bg.border_px
-            ##~ x1 = i['x1'] + self.bg.border_px
-            ##~ y0 = i['y0'] - self.bg.border_px
-            ##~ y1 = i['y1'] + self.bg.border_px
-            ##~ if y0 % 2:
-                ##~ y0 -= 1
-            ##~ if y1 % 2:
-                ##~ y1 += 1
-            ##~ b.set('x0', str(x0))
-            ##~ b.set('x1', str(x1))
-            ##~ b.set('y0', str(y0))
-            ##~ b.set('y1', str(y1))
-        #tree = etree.ElementTree(subpictures)
-        #tree.write(self.path_menu_xml, encoding='UTF-8', pretty_print=True)
-        #e = dict(os.environ)
-        #e['VIDEO_FORMAT'] = 'NTSC'
-        #with open(self.path_menu_mpg, 'w') as f:
-            #p1 = subprocess.Popen(['cat', self.path_bg_mpg], 
-                                  #stdout=subprocess.PIPE)
-            #p2 = subprocess.Popen(['spumux', self.path_menu_xml], 
-                                  #stdin=p1.stdout, stdout=f, env=e)
-            #p1.stdout.close()
-            #out, err = p2.communicate()
-
     def create_menu_mpg(self):
         #~ self.buttons = []
-        self.create_menu_xml(self.path_hl_img, self.path_sl_img, 
+        self.create_menu_xml(self.bg.path_hl_img, 
+                             self.bg.path_sl_img, 
                              self.path_menu_xml)
-        self.multiplex_buttons(self.path_bg_mpg, self.path_menu_mpg,
-                               self.path_menu_xml, '0')
+        self.multiplex_buttons(self.path_bg_mpg, 
+                               self.path_menu_mpg, 
+                               self.path_menu_xml, 
+                               '0')
         if self.menu_ar == 16/9:
-            self.create_menu_xml(self.path_hl_lb_img, self.path_sl_lb_img, 
+            self.create_menu_xml(self.bg.path_hl_lb_img, 
+                                 self.bg.path_sl_lb_img, 
                                  self.path_menu_lb_xml)
-            self.multiplex_buttons(self.path_menu_mpg, self.path_menu_lb_mpg,
-                                   self.path_menu_lb_xml, '1')
+            self.multiplex_buttons(self.path_menu_mpg, 
+                                   self.path_menu_lb_mpg, 
+                                   self.path_menu_lb_xml, 
+                                   '1')
             self.path_menu_mpg = self.path_menu_lb_mpg
             
 
@@ -902,6 +807,9 @@ class DVD (object):
         self.separate_titlesets=separate_titlesets 
         self.ar_threshold=ar_threshold
         # menu options
+        if type(menu_ar) == str:
+            ar_w, ar_h = menu_ar.split(':')
+            menu_ar = int(ar_w) / int(ar_h)
         self.menu_ar=menu_ar
         self.with_menu_labels=with_menu_labels 
         self.label_line_height=label_line_height
@@ -1341,7 +1249,7 @@ class DVD (object):
         else:
             ar = '4:3'
         log_data = list(zip(['Aspect Ratio', 'Image', 'Video'],
-                            [ar, self.menu.path_bg_img, 
+                            [ar, self.menu.bg.path_bg_img, 
                              self.menu.path_menu_mpg]))
         log_items(heading='Menu', items=log_data, lines_before=1)
     
@@ -1378,7 +1286,7 @@ class DVD (object):
             elif resp == 0:
                 break
             if resp == 1:
-                o = subprocess.check_call([IMAGE_VIEWER, self.menu.path_bg_img])
+                o = subprocess.check_call([IMAGE_VIEWER, self.menu.bg.path_bg_img])
             elif resp == 2:
                 o = subprocess.check_call([VIDEO_PLAYER, 
                                            self.menu.path_menu_mpg])

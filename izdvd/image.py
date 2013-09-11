@@ -143,7 +143,7 @@ class Img (object):
         self.colors = out_file
         return out_file
     
-    def resize(self, width, height, ignore_aspect=False, no_antialias=False, 
+    def resize(self, width=None, height=None, ignore_aspect=False, no_antialias=False, 
                no_dither=False, colors=None, remap=None, out_file=None, 
                out_fmt='png'):
         if out_file is None:
@@ -151,6 +151,10 @@ class Img (object):
         flags=''
         if ignore_aspect:
             flags='!'
+        if width is None:
+            width = self.get_width()
+        if height is None:
+            height = self.get_height()
         size = '{}x{}{}'.format(width, height, flags)
         
         cmd = ['convert', self.path, '-resize', size]
