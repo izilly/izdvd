@@ -18,15 +18,25 @@ class Error(Exception):
         self.message = message
 
 class Encoder (object):
-    def __init__(self, in_file=None, in_srt=None, out_file=None, out_dir=None, 
-                 aspect='16:9', vbitrate=1000000, abitrate=96000, 
-                 two_pass=True, dry_run=False, get_args=False, 
+    def __init__(self, 
+                 in_file=None, 
+                 in_srt=None, 
+                 out_file=None, 
+                 out_dir=None, 
+                 aspect='16:9', 
+                 dvd_format='NTSC',
+                 vbitrate=1000000, 
+                 abitrate=96000, 
+                 two_pass=True, 
+                 dry_run=False, 
+                 get_args=False, 
                  with_subs=False):
         self.in_file = in_file
         self.in_srt= in_srt
         self.out_file = out_file
         self.out_dir = out_dir
         self.aspect = aspect
+        self.dvd_format = dvd_format
         self.vbitrate = vbitrate
         self.abitrate = abitrate
         self.two_pass = two_pass
@@ -98,8 +108,9 @@ class Encoder (object):
         print('\nInput file: {}\n'.format(args.in_file))
     
     def get_size(self):
-        mediainfo = subprocess.check_output(['mediainfo', self.in_file], universal_newlines=True).splitlines()
-        for l in mediainfo:
+        info = subprocess.check_output(['mediainfo', self.in_file], 
+                                       universal_newlines=True).splitlines()
+        for l in info:
             if l.startswith('Width '):
                 width = re.search(r':\s*(\d+)', l).group(1)
                 self.width = int(width)
@@ -115,44 +126,61 @@ class Encoder (object):
                     dar = float(dar_mi)
                 self.dar = dar
     
-    def check_valid_dvd(self):
-        if self.height <= 480 and self.width <= 720:
-            if self.height > 470 or self.width > 710:
-                if abs(self.dar - (16/9)) < .04:
-                    w = self.width * (854/720)
-                    h = self.height
-                    ar = w/h
-                    if abs(ar-self.dar) < .04:
-                        self.no_scale = True
-                        return True
-                    else:
-                        return False
-    
     def calculate_scaling(self):
-        self.ar = self.width / self.height
         if self.aspect == '4:3':
-            display_width = 640
-            display_ar = 4/3
+            self.display_ar = 4/3
+        elif self.aspect == '16:9':
+            self.display_ar = 16/9
+        
+        if self.dvd_format.lower() == 'pal':
+            self.storage_width = 720
+            self.storage_height = 576
+            self.fps = 25
+            self.fps_str = '25'
+            self.ffmpeg_target = 'pal-dvd'
+            if self.aspect == '4:3':
+                self.display_width = 768
+                self.display_height = 576
+            elif self.aspect == '16:9':
+                self.display_width = 1024
+                self.display_height = 576
+            else:
+                raise
+        elif self.dvd_format.lower() == 'ntsc':
+            self.storage_width = 720
+            self.storage_height = 480
+            self.fps = 30000/1001
+            self.fps_str = '29.97'
+            self.ffmpeg_target = 'ntsc-dvd'
+            if self.aspect == '4:3':
+                self.display_width = 640
+                self.display_height = 480
+            elif self.aspect == '16:9':
+                self.display_width = 854                
+                self.display_height = 480
+            else:
+                raise
         else:
-            display_width = 854
-            display_ar = 16/9
-        if self.check_valid_dvd():
-            self.scale_w = self.width
-            self.scale_h = self.height
-        elif self.dar >= display_ar:
-            self.scale_w = 720
-            self.scale_h = math.floor(display_width/self.dar)
+            raise
+        if self.dar >= self.display_ar:
+            self.scale_w = self.storage_width
+            self.scale_h = math.floor(self.display_width/self.dar)
         else:
-            self.scale_h = 480
-            self.scale_w = math.floor((480*self.dar)/(display_width/720))
+            self.scale_h = self.storage_height
+            self.scale_w = math.floor((self.display_height*self.dar) *
+                                      (self.storage_width / self.display_width))
     
     def calculate_padding(self):
-        self.pad_x = math.floor((720-self.scale_w)/2)
-        self.pad_y = math.floor((480-self.scale_h)/2)
+        self.pad_x = math.floor((self.storage_width - self.scale_w) / 2)
+        self.pad_y = math.floor((self.storage_height - self.scale_h) / 2)
         self.scale = 'scale={}:{}'.format(self.scale_w, self.scale_h)
-        self.pad = 'pad=720:480:{}:{}:0x000000'.format(self.pad_x, self.pad_y)
+        self.pad = 'pad={}:{}:{}:{}:0x000000'.format(self.storage_width,
+                                                     self.storage_height,
+                                                     self.pad_x, 
+                                                     self.pad_y)
+
         self.vf = '{},{}'.format(self.scale, self.pad)
-        print('WTA calculated -vf: {}'.format(self.vf))
+        print('-filter:v {}'.format(self.vf))
     
     def write_srt(self):
         if self.in_srt:
@@ -187,8 +215,8 @@ class Encoder (object):
         textsub.set('shadow-color', "rgba(35, 35, 35, 175)")
         textsub.set('horizontal-alignment', "center")
         textsub.set('vertical-alignment', "bottom")
-        textsub.set('subtitle-fps', "29.97")
-        textsub.set('movie-fps', "29.97")
+        textsub.set('subtitle-fps', self.fps_str)
+        textsub.set('movie-fps', self.fps_str)
         textsub.set('aspect', self.aspect)
         textsub.set('force', 'no')
         tree = etree.ElementTree(subpictures)
@@ -196,44 +224,26 @@ class Encoder (object):
     
     def build_cmd(self, passnum, args_only=False):
         passnum = str(passnum)
-        #~ enc_opts = [{'-i': self.in_file},
-                        #~ {'-f': 'dvd'},
-                        #~ {'-target': 'ntsc-dvd'},
-                        #~ {'-aspect': self.aspect},
-                        #~ {'-vf': self.vf},
-                        #~ {'-s': '720x480'},
-                        #~ {'-b:v': self.vbitrate},
-                        #~ {'-sn': None},
-                        #~ {'-g': '12'},
-                        #~ {'-bf': '2'},
-                        #~ {'-strict': '1'},
-                        #~ #{'-threads': '4'},
-                        #~ {'-trellis': '1'},
-                        #~ {'-mbd': '2'},
-                        #~ {'-b:a': self.abitrate},
-                        #~ {'-acodec': 'ac3'},
-                        #~ {'-ac': '2'}]
-        enc_opts = [{'-target': 'ntsc-dvd'},
+        enc_opts = [{'-target': self.ffmpeg_target},
                         {'-aspect': self.aspect},
-                        {'-vf': self.vf},
-                        {'-s': '720x480'},
+                        {'-filter:v': self.vf},
+                        {'-s': '{}x{}'.format(self.storage_width, 
+                                              self.storage_height)},
                         {'-b:v': self.vbitrate},
                         {'-sn': None},
-                        {'-g': '12'},
-                        {'-bf': '2'},
+                        #~ {'-g': '12'},
+                        #~ {'-bf': '2'},
                         {'-strict': '1'},
                         #~ {'-threads': '4'},
-                        {'-trellis': '1'},
-                        {'-mbd': '2'},
+                        #~ {'-trellis': '1'},
+                        #~ {'-mbd': '2'},
                         {'-b:a': self.abitrate},
                         {'-acodec': 'ac3'},
                         {'-ac': '2'}]
         if not args_only:
             args = ['ffmpeg']
-            #~ args.extend = ['-i', in_file]
             if self.in_files_cat:
                 args.extend(['-f', 'concat', '-i', self.cat_file])
-                #~ in_file = self.cat_file
             else:
                 args.extend(['-i', self.in_file])
         else:
@@ -251,8 +261,6 @@ class Encoder (object):
             print('First pass: \n{}\n'.format(' '.join(first_pass)))
             if not self.dry_run:
                 subprocess.check_call(first_pass)
-            #~ else:
-                #~ print('First pass: \n{}\n'.format(' '.join(first_pass)))
         
         final_pass = self.build_cmd(2)
         if self.dry_run:
@@ -262,7 +270,7 @@ class Encoder (object):
         
         if self.with_subs:
             e = dict(os.environ)
-            e['VIDEO_FORMAT'] = 'NTSC'
+            e['VIDEO_FORMAT'] = self.dvd_format
             fp = final_pass+['-']
             spu = ['spumux', '-s0', self.subs_xml]
             cmd_str = '{} | {}'.format(' '.join(fp), ' '.join(spu))

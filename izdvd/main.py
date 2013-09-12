@@ -372,7 +372,7 @@ def make_dvd(options):
               # if any present or given on command line
               with_subs=options.with_subs, 
               sub_lang=options.sub_lang, 
-              #~ dvd_format=options.dvd_format, 
+              dvd_format=options.dvd_format, 
               dvd_ar=options.dvd_ar, 
               vbitrate=options.vbitrate, 
               abitrate=options.abitrate, 

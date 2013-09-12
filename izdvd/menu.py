@@ -462,6 +462,9 @@ class BG (object):
         '''Create images for each label to be placed alongside the button 
         images.
         '''
+        has_labels = [i for i in self.menu_labels if i]
+        if not has_labels:
+            self.menu_labels = None
         if not self.menu_labels or not self.label_line_height > 0:
             self.label_imgs = None
             self.label_height = 0
@@ -1006,9 +1009,9 @@ class DVD (object):
         if not self.with_menu:
             self.menu_imgs = [None for i in self.in_vids]
             return
-        if not self.menu_bg:
-            bg = CanvasImg(720, 480, 'gray')
-            self.menu_bg = bg.path
+        #~ if not self.menu_bg:
+            #~ bg = CanvasImg(720, 480, 'gray')
+            #~ self.menu_bg = bg.path
         if not self.menu_imgs:
             self.menu_imgs = []
             for i in self.in_vids:
@@ -1036,7 +1039,8 @@ class DVD (object):
         if self.with_menu and self.with_menu_labels:
             if self.strip_label_year:
                 pat = r'\s*\([-./\d]{2,12}\)\s*$'
-                self.menu_labels = [re.sub(pat, '', i) for i in menu_labels]
+                self.menu_labels = [re.sub(pat, '', i) 
+                                    for i in self.menu_labels]
         else:
             self.menu_labels = [None for i in self.in_vids]
     
@@ -1445,9 +1449,11 @@ class DVD (object):
         self.menu = DVDMenu(self.menu_imgs, 
                             menu_bg=self.menu_bg,
                             menu_labels=self.menu_labels, 
-                            out_dir=self.out_files_dir,
+                            out_dir=self.out_dir,
                             out_name=self.out_name,
+                            tmp_dir=self.tmp_dir,
                             menu_ar=self.menu_ar,
+                            dvd_format=self.dvd_format,
                             **menu_args)
     
     def encode_video(self):
@@ -1465,13 +1471,15 @@ class DVD (object):
         for ts in self.titlesets:
             aspect = ts['ar']
             for v in ts['vids']:
-                e = Encoder(v['in'], out_dir=self.tmp_dir, 
-                                    vbitrate=self.vbitrate, 
-                                    abitrate=self.abitrate,
-                                    two_pass=self.two_pass,
-                                    aspect=aspect,
-                                    with_subs=self.with_subs, 
-                                    in_srt=v['srt'][0])
+                e = Encoder(v['in'], 
+                            out_dir=self.tmp_dir, 
+                            vbitrate=self.vbitrate, 
+                            abitrate=self.abitrate,
+                            two_pass=self.two_pass,
+                            aspect=aspect,
+                            dvd_format=self.dvd_format,
+                            with_subs=self.with_subs, 
+                            in_srt=v['srt'][0])
                 mpeg = e.encode()
                 v['mpeg'] = mpeg
     
@@ -1579,7 +1587,7 @@ class DVD (object):
     def author_dvd(self):
         log_items(heading='Writing DVD to disc...', items=False)
         e = dict(os.environ)
-        e['VIDEO_FORMAT'] = 'NTSC'
+        e['VIDEO_FORMAT'] = self.dvd_format
         cmd = ['dvdauthor', '-x', self.out_dvd_xml, '-o', self.out_dvd_dir]
         o = subprocess.check_output(cmd, env=e, universal_newlines=True)
 
