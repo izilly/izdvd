@@ -289,7 +289,8 @@ class Img (object):
         '''
         if out_file is None:
             out_file = self.get_tmpfile('new_layer', out_fmt)
-        if type(img) == type(self):
+        #~ if type(img) == type(self):
+        if isinstance(img, Img):
             if use_orig_origin:
                 x_offset -= img.x_offset
                 y_offset -= img.y_offset
@@ -746,9 +747,9 @@ class CanvasImg(Img):
         self.size = width, height
         self.color=color
         super(CanvasImg, self).__init__()
-        self.write()
+        self.write_canvas()
     
-    def write(self, out_file=None, out_fmt='png'):
+    def write_canvas(self, out_file=None, out_fmt='png'):
         if out_file is None:
             out_file = self.get_tmpfile('canvas', out_fmt)
         o = subprocess.check_output(['convert', 
