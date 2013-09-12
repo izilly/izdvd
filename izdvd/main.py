@@ -5,91 +5,13 @@
 #  Distributed under the terms of the Modified BSD License.
 #  The full license is in the file LICENSE, distributed with this software.
 
-from izdvd.menu import DVD
+from izdvd.menu import DVD, DVDMenu, BG
 from izdvd.utils import HelpFormatter
 import re
 import os
 import os.path
 import argparse
 
-'''
-class BG (object):
-    def __init__(self, bg_img, button_imgs, 
-                 button_labels=None, 
-                 out_dir=None, out_name=None,
-                 border_px=5, border_color='white', 
-                 highlight_color='#56B356', select_color='red',
-                 label_line_height=0, label_lines=2, 
-                 label_padding=5, outer_padding=30, inner_padding=30, 
-                 width=None, height=None, display_ar=None,
-                 shadow_sigma=3, shadow_x_offset=5, shadow_y_offset=5):
-class DVDMenu (object):
-    def __init__(self, bg_img, button_imgs, 
-                 button_labels=None, 
-                 out_dir=None, out_name=None,
-                 label_line_height=18, label_lines=2, 
-                 label_padding=5, outer_padding=80, inner_padding=40, 
-                 dvd_format='NTSC', dvd_menu_ar=4/3, dvd_menu_audio=None):
-'''
-
-'''
-class DVD (object):
-    def __init__(self, 
-                 # input 
-                 in_vids=None, 
-                 in_dirs=None, 
-                 in_srts=None, 
-                 menu_imgs=None, 
-                 menu_labels=None, 
-                 menu_bg=None, 
-                 # input options
-                 vid_fmts=['mp4', 'avi', 'mkv'],
-                 img_fmts=['png', 'jpg', 'bmp', 'gif'],
-                 sub_fmts=['srt'],
-                 img_names=['poster', 'folder'],
-                 one_vid_per_dir=False,
-                 label_from_img=False,
-                 label_from_dir=True, 
-                 strip_label_year=True,
-                 no_encode_v=False, 
-                 no_encode_a=False, 
-                 unstack_vids=None,
-                 # output locations
-                 out_name=None, 
-                 out_dir=None, 
-                 tmp_dir=None,
-                 # output options
-                 with_menu=True, 
-                 menu_only=False,
-                 with_author_dvd=True,
-                 #~ dvd_size_bits=37602983936,
-                 dvd_size_bytes=4700372992,
-                 # dvd options
-                 audio_lang='en',
-                 with_subs=False, 
-                 sub_lang='en', 
-                 dvd_format='NTSC', 
-                 dvd_ar=None, 
-                 vbitrate=None, 
-                 abitrate=196608, 
-                 two_pass=True,
-                 separate_titles=True, 
-                 separate_titlesets=False, 
-                 ar_threshold=1.38,
-                 # menu options
-                 dvd_menu_ar=None,
-                 with_menu_labels=False, 
-                 label_line_height=None,
-                 label_lines=None,
-                 label_padding=None,
-                 outer_padding=None,
-                 inner_padding=None,
-                 menu_audio=None,
-                 no_loop_menu=True):
-
-'''
-
-mv_path = 'PATH'
 
 def get_options(mode='dvd'):
     parser = argparse.ArgumentParser(formatter_class=HelpFormatter)
@@ -116,20 +38,20 @@ def get_options(mode='dvd'):
 def add_in_paths_opts(parser, mode='dvd'):
     in_files = parser.add_argument_group(title='Input Paths')
     if mode == 'dvd':
-        in_files.add_argument('-v', '--in-vids', metavar=mv_path, nargs='*',
+        in_files.add_argument('-v', '--in-vids', metavar='PATH', nargs='*',
                                   help="""Video files""")
-        in_files.add_argument('-d', '--in-dirs', metavar=mv_path, nargs='*', 
+        in_files.add_argument('-d', '--in-dirs', metavar='PATH', nargs='*', 
                                   help="""Directories containing 
                                           video[/image/subtitle] files""")
-        in_files.add_argument('-s', '--in-srts', metavar=mv_path, nargs='*', 
+        in_files.add_argument('-s', '--in-srts', metavar='PATH', nargs='*', 
                                   help="""Subtitle files in .srt format""")
     
     if mode in ['dvd', 'menu', 'bg']:
-        in_files.add_argument('-i', '--menu-imgs', metavar=mv_path, nargs='*', 
+        in_files.add_argument('-i', '--menu-imgs', metavar='PATH', nargs='*', 
                                   help="""Menu images (buttons)""")
         in_files.add_argument('-l', '--menu-labels', metavar='LABEL', nargs='*', 
                                   help="""Menu labels (optional)""")
-        in_files.add_argument('-b', '--menu-bg', metavar=mv_path,
+        in_files.add_argument('-b', '--menu-bg', metavar='PATH',
                                   help="""Menu background image (optional)""")
 
 def add_in_opts(parser, mode='dvd'):
@@ -322,6 +244,9 @@ def add_bg_opts(parser, mode='dvd'):
         menu_ar.default = '16:9'
         menu_ar.help = """Menu aspect ratio. (default: %(default)s)"""
     
+    bg_opts.add_argument('--dvd-format', metavar='FMT', 
+                               default='NTSC',
+                               help="""DVD format. (NTSC or PAL, default: %(default)s)""")
     bg_opts.add_argument('--outer-padding', type=int, metavar='PX', 
                                default=80,
                                help="""Minimum padding in pixels between the 
@@ -391,9 +316,9 @@ def add_bg_opts(parser, mode='dvd'):
 
 def add_out_paths_opts(parser, mode='dvd'):
     out_files = parser.add_argument_group(title='Output Paths')
-    out_files.add_argument('-o', '--out-dir', metavar=mv_path,
+    out_files.add_argument('-o', '--out-dir', metavar='PATH',
                                help="""Output directory""")
-    out_files.add_argument('-t', '--tmp-dir', metavar=mv_path,
+    out_files.add_argument('-t', '--tmp-dir', metavar='PATH',
                                help="""Temp directory (for transcoding video 
                                        files, etc.) By default /tmp, or whatever 
                                        tempfile.gettempdir() returns will be 
@@ -465,10 +390,17 @@ def make_dvd(options):
               inner_padding = options.inner_padding,
               no_loop_menu=True)
 
+def make_bg(options):
+    bg = BG(**vars(options))
+
 def main(mode='dvd'):
     options = get_options(mode=mode)
     if mode == 'dvd':
         make_dvd(options)
+    elif mode == 'menu':
+        make_menu(options)
+    elif mode == 'bg':
+        make_bg(options)
     return 0
 
 if __name__ == '__main__':
