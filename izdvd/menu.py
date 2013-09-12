@@ -657,20 +657,8 @@ class DVDMenu (object):
         self.path_menu_lb_xml = os.path.join(fdir, 
                                              '{}_menu_lb.xml'.format(out_name))
     def get_bg(self):
-        if self.menu_ar == 4/3:
-            self.width = 640
-        else:
-            self.width = 854
-        if self.dvd_format == 'NTSC':
-            self.height = 480
-        elif self.dvd_format == 'PAL':
-            self.height = 576
-        #~ display_ar = width / height
-        has_labels = [i for i in self.menu_labels if i]
-        if not has_labels:
-            self.label_line_height = 0
-        self.bg = BG(menu_bg=self.menu_bg, 
-                     menu_imgs=self.menu_imgs, 
+        self.bg = BG(menu_imgs=self.menu_imgs, 
+                     menu_bg=self.menu_bg, 
                      menu_labels=self.menu_labels,
                      out_name=self.out_name,
                      out_dir=self.out_dir, 
@@ -678,9 +666,8 @@ class DVDMenu (object):
                      outer_padding=self.outer_padding, 
                      inner_padding=self.inner_padding, 
                      label_padding=self.label_padding, 
-                     width=self.width, 
-                     height=self.height, 
                      menu_ar=self.menu_ar,
+                     dvd_format=self.dvd_format,
                      label_line_height=self.label_line_height, 
                      label_lines=self.label_lines)
     
@@ -721,7 +708,10 @@ class DVDMenu (object):
             o = subprocess.check_output(cmd, universal_newlines=True)
             return
         # else make silent audio file for menu
-        samples = int(self.frames) * 1601.6
+        if self.dvd_format == 'PAL':
+            samples = int(self.frames) * 1920
+        else:
+            samples = int(self.frames) * 1601.6
         samples = math.floor(samples)
         p1 = subprocess.Popen(['dd', 'if=/dev/zero', 'bs=4', 
                                'count={}'.format(samples)], 
@@ -773,7 +763,10 @@ class DVDMenu (object):
 
     def multiplex_buttons(self, in_mpg, out_mpg, xml, stream):
         e = dict(os.environ)
-        e['VIDEO_FORMAT'] = 'NTSC'
+        if self.dvd_format == 'PAL':
+            e['VIDEO_FORMAT'] = 'PAL'
+        else:
+            e['VIDEO_FORMAT'] = 'NTSC'
         with open(out_mpg, 'w') as f:
             p1 = subprocess.Popen(['cat', in_mpg], 
                                   stdout=subprocess.PIPE)
