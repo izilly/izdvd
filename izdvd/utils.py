@@ -9,7 +9,7 @@
 import os.path
 import argparse
 import tempfile
-
+from datetime import datetime
 
 def read_file(path):
     with open(path) as f:
@@ -70,6 +70,33 @@ def get_out_paths(prog_name, out_name, out_dir, tmp_dir, tmp_required_space):
             os.makedirs(i)
     
     return out_name, out_dir, tmp_dir
+
+def get_dvd_dims(ar, dvd_format):
+    storage_width = 720
+    if dvd_format.lower() == 'ntsc':
+        storage_height = 480
+        if ar == 16/9:
+            display_width = 854
+            display_height = 480
+        elif ar == 4/3:
+            display_width = 720
+            display_height = 540
+        else:
+            raise
+    elif dvd_format.lower() == 'pal':
+        storage_height = 576
+        display_height = 576
+        if ar == 16/9:
+            display_width = 1024
+        elif ar == 4/3:
+            display_width = 768
+        else:
+            raise
+    dims = { 'storage_width':  storage_width,
+             'storage_height': storage_height,
+             'display_width':  display_width,
+             'display_height': display_height }
+    return dims
 
 
 class HelpFormatter(argparse.HelpFormatter):

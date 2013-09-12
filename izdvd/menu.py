@@ -100,8 +100,8 @@ def get_space_available(path):
 class BG (object):
     def __init__(self, 
                  # input paths
-                 menu_bg, 
                  menu_imgs, 
+                 menu_bg=None,
                  menu_labels=None,
                  # output paths 
                  out_name=None,
@@ -113,10 +113,11 @@ class BG (object):
                  inner_padding=30,
                  label_padding=5, 
                  # size/shape 
-                 width=None, 
-                 height=None, 
+                 display_width=None, 
+                 display_height=None, 
                  menu_ar=None,
-                 display_ar=None,
+                 storage_ar=None,
+                 dvd_format='NTSC',
                  # buttons
                  button_border_color='white', 
                  button_border_thickness=5, 
@@ -143,10 +144,14 @@ class BG (object):
         self.outer_padding = outer_padding
         self.inner_padding = inner_padding
         # size/shape
-        self.width = width
-        self.height = height
+        self.display_width = display_width
+        self.display_height = display_height
+        if type(menu_ar) == str:
+            ar_w, ar_h = menu_ar.split(':')
+            menu_ar = int(ar_w) / int(ar_h)
         self.menu_ar = menu_ar
-        self.display_ar = display_ar
+        self.storage_ar = storage_ar
+        self.dvd_format = dvd_format
         # buttons
         self.button_border_color = button_border_color
         self.button_border_thickness = button_border_thickness
@@ -162,7 +167,9 @@ class BG (object):
         #---------
         self.get_out_paths()
         self.get_imgs()
-        self.cells = len(self.button_imgs)
+        self.get_dims()
+        self.make_bg()
+        self.resize_bg()
         #
         self.create_labels()
         self.calc_cell_ar()
@@ -176,22 +183,6 @@ class BG (object):
         self.overlay_buttons()
         self.resize_imgs()
         self.write()
-    
-    def get_imgs(self):
-        self.button_imgs = [Img(i) for i in self.menu_imgs]
-        self.bg_img = Img(self.menu_bg)
-        bg_width = self.bg_img.get_width()
-        bg_height = self.bg_img.get_height()
-        if self.width is None:
-            self.width = bg_width
-        if self.height is None:
-            self.height = bg_height
-        if bg_width != self.width or bg_height != self.height:
-            self.bg_img.resize(self.width, self.height, ignore_aspect=True)
-        self.storage_ar = self.width / self.height
-        if self.display_ar is None:
-            self.display_ar = self.storage_ar
-        self.multiplier = self.storage_ar / self.display_ar
     
     def get_out_paths(self):
         paths = utils.get_out_paths(PROG_NAME, self.out_name, self.out_dir,
@@ -209,6 +200,62 @@ class BG (object):
         self.path_sl_lb_img = os.path.join(fdir, 
                                            '{}_sl_lb.png'.format(out_name))
     
+    def get_imgs(self):
+        self.button_imgs = [Img(i) for i in self.menu_imgs]
+        if self.menu_bg and os.path.exists(self.menu_bg):
+            self.bg_img = Img(self.menu_bg)
+        else:
+            self.bg_img = None
+    
+    def get_dims(self):
+        if self.menu_ar and self.dvd_format:
+            dims = utils.get_dvd_dims(self.menu_ar, self.dvd_format)
+            self.storage_width = dims['storage_width']
+            self.storage_height = dims['storage_height']
+            self.display_width = dims['display_width']
+            self.display_height = dims['display_height']
+            self.display_ar = self.menu_ar
+            self.storage_ar = self.storage_width / self.storage_height
+        else:
+            self.display_width = self.bg_img.get_width()
+            self.display_height = self.bg_img.get_height()
+            self.display_ar = self.display_width / self.display_height
+            if self.storage_ar is None:
+                self.storage_ar = self.display_ar
+                self.storage_width = self.display_width
+                self.storage_height = self.display_height
+            else:
+                multiplier = self.storage_ar / self.display_ar
+                self.storage_width = self.display_width * multiplier
+                self.storage_height = self.display_height
+    
+    def make_bg(self):
+        if self.bg_img is None:
+            if self.menu_bg is not None:
+                try:
+                    self.bg_img = CanvasImg(width=self.display_width,
+                                            height=self.display_height,
+                                            color=self.menu_bg)
+                    return
+                except:
+                    pass
+            self.bg_img = CanvasImg(width=self.display_width,
+                                    height=self.display_height,
+                                    color='gray')
+    
+    def resize_bg(self):
+        if self.bg_img.get_width() != self.display_width:
+            new_width = self.display_width
+        else:
+            new_width = None
+        if self.bg_img.get_height() != self.display_height:
+            new_height = self.display_height
+        else:
+            new_height = None
+        if new_width or new_height:
+            self.bg_img.resize(width=new_width, height=new_height,
+                               ignore_aspect=True)
+    
     def calc_cell_ar(self):
         '''Gets the most common aspect ratio of all button images.
         
@@ -220,7 +267,8 @@ class BG (object):
                          and display aspect ratios.)
         '''
         ars = Counter([i.ar for i in self.button_imgs])
-        base_ar = ars.most_common()[0][0] * self.multiplier
+        #~ base_ar = ars.most_common()[0][0] * self.multiplier
+        base_ar = ars.most_common()[0][0]
         self.cell_ar = base_ar
     
     def get_grid_size(self):
@@ -239,7 +287,7 @@ class BG (object):
             buttons = cols * rows
             
             buttons = rows(gr*rows)
-            buttons = gr * rows^2
+            buttons = gr * rows^2self.width
             buttons / gr = rows^2
             sqrt(buttons / gr) = rows
             
@@ -248,8 +296,8 @@ class BG (object):
             buttons*gr = cols^2
             sqrt(buttons*gr) = cols
         '''
-        bg_w = self.width - self.outer_padding*2
-        bg_h = self.height - self.outer_padding*2
+        bg_w = self.display_width - self.outer_padding*2
+        bg_h = self.display_height - self.outer_padding*2
         bg_ar = bg_w / bg_h
         grid_ratio = bg_ar / self.cell_ar
         buttons = len(self.button_imgs)
@@ -367,13 +415,15 @@ class BG (object):
                         (modifies self.button_imgs)
         '''
         for i in self.button_imgs:
-            i.storage_ar = i.ar * self.multiplier
-            if i.storage_ar > self.cell_ar:
+            #~ i.storage_ar = i.ar * self.multiplier
+            #~ if i.storage_ar > self.cell_ar:
+            if i.ar > self.cell_ar:
                 w = self.cell_w
                 h = math.floor(self.cell_w / self.cell_ar)
                 i.x_padding = 0
                 i.y_padding = math.floor((self.cell_h - h) / 2)
-            elif i.storage_ar < self.cell_ar:
+            #~ elif i.storage_ar < self.cell_ar:
+            elif i.ar < self.cell_ar:
                 w = math.floor(self.cell_h * self.cell_ar)
                 h = self.cell_h
                 i.x_padding = math.floor((self.cell_w - w) / 2)
@@ -414,6 +464,8 @@ class BG (object):
         '''
         if not self.menu_labels or not self.label_line_height > 0:
             self.label_imgs = None
+            self.label_height = 0
+            self.label_padding = 0
             return False
         button_w = max([i.get_width() for i in self.button_imgs])
         labels = []
@@ -426,7 +478,7 @@ class BG (object):
         self.label_height = max([i.get_height() for i in labels])
         for i in labels:
             if i.get_height() < self.label_height:
-                i.pad_to(new_w=i.get_width(), new_h=self.label_height)
+                i.pad_to(new_h=self.label_height, gravity='center')
         self.label_imgs = labels
     
     def append_labels(self):
@@ -452,7 +504,7 @@ class BG (object):
                         x1: right edge
                         y1: bottom edge
         '''
-        cells = self.cells
+        cells = len(self.button_imgs)
         cols = self.cols
         rows = self.rows
         #~ label_height = self.label_line_height * self.label_lines
@@ -463,8 +515,8 @@ class BG (object):
         # label_height/label_padding needs to be zero if there is no label.
         cell_h = (self.cell_h + label_height 
                   + self.label_padding + shadow_padding['y'])
-        bg_w = self.width
-        bg_h = self.height
+        bg_w = self.display_width
+        bg_h = self.display_height
         total_cells = list(range(cells))
         cells = []
         padding_y = math.floor((bg_h - cell_h*rows) / (rows + 1))
@@ -488,8 +540,8 @@ class BG (object):
         '''
         self.highlight_img = self.bg_img.new_canvas()
         self.select_img = self.bg_img.new_canvas()
-        for i,cell in enumerate(self.cell_locations):
-            b = self.button_imgs[i]
+        for n,cell in enumerate(self.cell_locations):
+            b = self.button_imgs[n]
             x = cell['x0'] + b.x_padding
             y = cell['y0'] + b.y_padding
             self.bg_img.new_layer(b, x, y, True)
@@ -497,17 +549,37 @@ class BG (object):
             self.select_img.new_layer(b.select, x, y, True)
     
     def resize_imgs(self):
-        self.bg_img.resize(width=720, ignore_aspect=True)
+        '''
+        backgrounds:
+        NTSC FS: 720x540  -> 720x480
+        PAL FS : 768x576  -> 720x576
+        NTSC WS: 854x480  -> 720x480
+        PAL WS : 1024x576 -> 720x576
+        letterboxed buttons:
+        NTSC WS: 854x480  -> 720x360 --pad--> 720x480
+        PAL WS : 1024x576 -> 720x432 --pad--> 720x576
+        '''
+        self.bg_img.resize(width=self.storage_width, 
+                           height=self.storage_height, 
+                           ignore_aspect=True)
         if self.menu_ar == 16/9:
+            if self.dvd_format.lower() == 'ntsc':
+                lb_h = 360
+            elif self.dvd_format.lower() == 'pal':
+                lb_h = 432
             self.highlight_lb_img = Img(self.highlight_img.path)
             self.select_lb_img = Img(self.select_img.path)
             for img in [self.highlight_lb_img, self.select_lb_img]:
-                img.resize(width=720, height=360, ignore_aspect=True,
+                img.resize(width=720, height=lb_h, ignore_aspect=True,
                            remap=True, no_antialias=True, no_dither=True)
-                img.pad_to(new_h=480)
+                img.pad_to(new_h=self.storage_height)
         for img in [self.highlight_img, self.select_img]:
-            img.resize(width=720, ignore_aspect=True, remap=True, 
-                       no_antialias=True, no_dither=True)
+            img.resize(width=self.storage_width, 
+                       height=self.storage_height,
+                       ignore_aspect=True, 
+                       remap=True, 
+                       no_antialias=True, 
+                       no_dither=True)
     
     def write(self, out_file_bg=None, out_file_hl=None, out_file_sl=None,
                  out_file_hl_lb=None, out_file_sl_lb=None):
