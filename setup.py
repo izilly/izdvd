@@ -9,10 +9,8 @@ from distutils.core import setup
 
 setup(
     name='izdvd',
-    version='0.3',
-    packages=['izdvd',],
-    name='izdvd',
     version='0.1.0',
+    packages=['izdvd'],
     author='William Adams',
     author_email='willadams+dev@gmail.com',
     license='LICENSE',
