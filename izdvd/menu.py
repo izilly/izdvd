@@ -1168,11 +1168,12 @@ class DVD (object):
         fmt = ('--output=Video;%Duration%|^|%Width%|^|%Height%|^|'
                '%PixelAspectRatio%|^|%DisplayAspectRatio%')
         for n,i in enumerate(self.in_vids):
+            subs = [self.in_srts[n]] if self.in_srts is not None else None
             if self.unstack_vids:
                 stacked = self.get_stacked_vids(i)
                 if self.with_subs:
                     subs = [self.in_srts[n]]
-                    addl_subs = [self.get_matching_file(i, ['srt'], []) 
+                    addl_subs = [self.get_matching_file(i, ['srt'], [])
                                  for i in stacked[1:]]
                     for sb in addl_subs:
                         if sb not in subs:
@@ -1265,8 +1266,10 @@ class DVD (object):
         for n,i in enumerate(self.vids):
             #~ dirs = [i['in'], i['img'], i['srt']]
             dirs = [p for p in i['in']]
-            dirs.extend(i['srt'])
-            dirs.append(i['img'])
+            if i['srt']:
+                dirs.extend(i['srt'])
+            if i['img']:
+                dirs.append(i['img'])
             #~ dirs.extend([i['img'], i['srt']])
             dirs = [os.path.dirname(i) for i in dirs if i is not None]
             commonprefix = utils.get_commonprefix(dirs)
@@ -1274,10 +1277,17 @@ class DVD (object):
                 in_dir = commonprefix
                 #~ in_vid = os.path.relpath(i['in'], commonprefix)
                 in_vids = [os.path.relpath(v, commonprefix) for v in i['in']]
-                in_srt = [os.path.relpath(v, commonprefix) if v else None 
-                          for v in i['srt']]
-                in_img = os.path.relpath(i['img'], 
-                                         commonprefix) if i['img'] else None
+                if i['srt']:
+                    in_srt = [os.path.relpath(v, commonprefix) if v else None 
+                              for v in i['srt']]
+                else:
+                    in_srt = None
+                if i['img']:
+                    in_img = os.path.relpath(i['img'], 
+                                             commonprefix) if i['img'] else None
+                else:
+                    in_img = None
+                
                 #~ in_srt = os.path.relpath(i['srt'], commonprefix)
             else:
                 in_dir = None
