@@ -171,10 +171,11 @@ class BG (object):
         self.make_bg()
         self.resize_bg()
         #
-        self.create_labels()
+        #~ self.create_labels()
         self.calc_cell_ar()
         self.get_grid_size()
         self.resize_buttons()
+        self.create_labels()
         self.prepare_buttons()
         #~ self.create_labels()
         self.append_labels()
@@ -353,9 +354,9 @@ class BG (object):
         '''
         padding_w = self.inner_padding * (cols - 1)
         padding_h = self.inner_padding * (rows - 1)
-        #~ label_padding_h = (self.label_line_height*self.label_lines 
-                           #~ + self.label_padding) * rows
-        label_padding_h = (self.label_height + self.label_padding) * rows
+        label_padding_h = (self.label_line_height*self.label_lines 
+                           + self.label_padding) * rows
+        #~ label_padding_h = (self.label_height + self.label_padding) * rows
         shadow_padding = self.calculate_shadow_padding()
         shadow_padding_x = shadow_padding['x']
         shadow_padding_y = shadow_padding['y']
@@ -1035,6 +1036,8 @@ class DVD (object):
                                      os.path.basename(os.path.split(i)[pt]))[0]
                                 if i is not None else None 
                                 for i in label_list]
+        else:
+            self.with_menu_labels = True
         self.vid_labels = self.menu_labels
         if self.with_menu and self.with_menu_labels:
             if self.strip_label_year:
@@ -1168,7 +1171,7 @@ class DVD (object):
         fmt = ('--output=Video;%Duration%|^|%Width%|^|%Height%|^|'
                '%PixelAspectRatio%|^|%DisplayAspectRatio%')
         for n,i in enumerate(self.in_vids):
-            subs = [self.in_srts[n]] if self.in_srts is not None else None
+            subs = [self.in_srts[n]] if self.in_srts is not None else [None]
             if self.unstack_vids:
                 stacked = self.get_stacked_vids(i)
                 if self.with_subs:
