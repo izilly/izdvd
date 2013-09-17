@@ -1150,12 +1150,13 @@ class DVD (object):
     def get_matching_file(self, vid, fmts, names=[]):
         dirname, basename = os.path.split(vid)
         name, ext = os.path.splitext(basename)
-        for n in [name, basename] + names:
+        for n in [name, basename, '{}*'.format(name)] + names:
             search_base = os.path.join(dirname, n)
             for fmt in fmts:
                 search_name = '.'.join([search_base, fmt])
-                if os.path.exists(search_name):
-                    return search_name
+                found = sorted(glob.glob(search_name))
+                if found:
+                    return found[0]
         # if no exact match found and one_vid_per_dir, we still search for 
         # match based only on file extension
         if self.one_vid_per_dir:
@@ -1420,9 +1421,13 @@ class DVD (object):
                       'audio/video bitrates!')
         
         total_bitrate = self.vbitrate + self.abitrate
+        #~ # 9800kbps (dvd max) = 10035200 bits per second
+        #~ if total_bitrate > 10035200:
+            #~ self.vbitrate = math.floor(10035200 - self.abitrate)
+        
         # 9800kbps (dvd max) = 10035200 bits per second
-        if total_bitrate > 10035200:
-            self.vbitrate = math.floor(10035200 - self.abitrate)
+        if total_bitrate > 9000000:
+            self.vbitrate = math.floor(9000000 - self.abitrate)
         
         logs = list(zip(['Total Duration', 'Bitrate', 'Video Bitrate', 
                          'Audio Bitrate'], 
