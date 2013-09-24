@@ -608,34 +608,70 @@ class BG (object):
 
 class DVDMenu (object):
     def __init__(self, 
+                 # input paths
                  menu_imgs, 
                  menu_bg=None,
-                 menu_labels=None, 
+                 menu_labels=None,
+                 # output paths 
                  out_name=None,
-                 out_dir=None, 
+                 out_dir=None,
                  tmp_dir=None,
-                 label_line_height=18, 
-                 label_lines=2, 
-                 label_padding=5, 
-                 outer_padding=80, 
-                 inner_padding=40, 
-                 menu_ar=4/3, 
-                 menu_audio=None,
-                 dvd_format='NTSC'):
+                 # ------bg opts------
+                 # padding
+                 outer_padding=None, 
+                 inner_padding=None,
+                 label_padding=None, 
+                 # size/shape 
+                 menu_ar=16/9,
+                 dvd_format='NTSC',
+                 # buttons
+                 button_border_color=None, 
+                 button_border_thickness=None, 
+                 button_highlight_color=None, 
+                 button_highlight_thickness=None,
+                 button_select_color=None,
+                 shadow_sigma=None, 
+                 shadow_x_offset=None, 
+                 shadow_y_offset=None,
+                 # labels
+                 label_line_height=None, 
+                 label_lines=None,
+                 # ------menu opts------
+                 menu_audio=None
+                 ):
+         # input paths
         self.menu_imgs = menu_imgs
         self.menu_bg = menu_bg
         self.menu_labels = menu_labels
+         # output paths 
         self.out_name = out_name
         self.out_dir = out_dir
         self.tmp_dir = tmp_dir
-        self.label_line_height = label_line_height
-        self.label_lines = label_lines
-        self.label_padding = label_padding
+         # ---------------bg opts --------------------
+         # padding
         self.outer_padding = outer_padding
         self.inner_padding = inner_padding
+        self.label_padding = label_padding
+         # size/shape
+        if type(menu_ar) == str:
+            ar_w, ar_h = menu_ar.split(':')
+            menu_ar = int(ar_w) / int(ar_h)
         self.menu_ar = menu_ar
-        self.menu_audio = menu_audio
         self.dvd_format = dvd_format
+        # buttons
+        self.button_border_color = button_border_color
+        self.button_border_thickness = button_border_thickness
+        self.button_highlight_color = button_highlight_color
+        self.button_highlight_thickness = button_highlight_thickness
+        self.button_select_color = button_select_color
+        self.shadow_sigma = shadow_sigma
+        self.shadow_x_offset = shadow_x_offset
+        self.shadow_y_offset = shadow_y_offset
+        # labels
+        self.label_line_height = label_line_height
+        self.label_lines = label_lines
+        # menu
+        self.menu_audio = menu_audio
         #-----------------
         self.get_out_paths()
         self.get_bg()
@@ -661,19 +697,51 @@ class DVDMenu (object):
         self.path_menu_lb_xml = os.path.join(fdir, 
                                              '{}_menu_lb.xml'.format(out_name))
     def get_bg(self):
-        self.bg = BG(menu_imgs=self.menu_imgs, 
-                     menu_bg=self.menu_bg, 
-                     menu_labels=self.menu_labels,
-                     out_name=self.out_name,
-                     out_dir=self.out_dir, 
-                     tmp_dir=self.tmp_dir,
-                     outer_padding=self.outer_padding, 
-                     inner_padding=self.inner_padding, 
-                     label_padding=self.label_padding, 
-                     menu_ar=self.menu_ar,
-                     dvd_format=self.dvd_format,
-                     label_line_height=self.label_line_height, 
-                     label_lines=self.label_lines)
+        bg_attrs = ['menu_bg',
+                    'menu_labels',
+                    # output paths 
+                    'out_name',
+                    'out_dir',
+                    'tmp_dir',
+                    # padding
+                    'outer_padding',
+                    'inner_padding',
+                    'label_padding',
+                    # size/shape 
+                    'menu_ar',
+                    'dvd_format',
+                    # buttons
+                    'button_border_color',
+                    'button_border_thickness',
+                    'button_highlight_color',
+                    'button_highlight_thickness',
+                    'button_select_color',
+                    'shadow_sigma',
+                    'shadow_x_offset',
+                    'shadow_y_offset',
+                    # labels
+                    'label_line_height',
+                    'label_lines']
+        bg_args = {}
+        for k in bg_attrs:
+            v = getattr(self, k)
+            if v is not None:
+                bg_args[k] = v
+        self.bg = BG(menu_imgs=self.menu_imgs, **bg_args)
+
+        #~ self.bg = BG(menu_imgs=self.menu_imgs, 
+                     #~ menu_bg=self.menu_bg, 
+                     #~ menu_labels=self.menu_labels,
+                     #~ out_name=self.out_name,
+                     #~ out_dir=self.out_dir, 
+                     #~ tmp_dir=self.tmp_dir,
+                     #~ outer_padding=self.outer_padding, 
+                     #~ inner_padding=self.inner_padding, 
+                     #~ label_padding=self.label_padding, 
+                     #~ menu_ar=self.menu_ar,
+                     #~ dvd_format=self.dvd_format,
+                     #~ label_line_height=self.label_line_height, 
+                     #~ label_lines=self.label_lines)
     
     def convert_to_m2v(self, frames=360):
         frames = str(frames)
