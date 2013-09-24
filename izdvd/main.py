@@ -11,32 +11,65 @@ import re
 import os
 import os.path
 import argparse
+import sys
 
 
 def get_options(mode='dvd'):
-    parser = argparse.ArgumentParser(formatter_class=HelpFormatter)
+    desc = {}
+    desc['dvd'] = '''Make an authored DVD with menu.  Outputs a VIDEO_TS 
+                     directory with DVD video files as well as a "files" 
+                     directory containing the files used to make the DVD 
+                     (dvdauthor/spumux xml configuration files, menu 
+                     image/video files, etc).'''
+    desc['menu'] = '''Make a DVD Menu. Outputs a set of video and xml files 
+                      compatible with dvdauthor.'''
+    desc['bg'] = '''Make a DVD menu background.  Outputs a set of 
+                    image and xml files that can be used to create a DVD menu 
+                    with spumux (part of the dvdauthor package).''' 
+    
+    parser = argparse.ArgumentParser(formatter_class=HelpFormatter, 
+                                     description=desc[mode])
     add_in_paths_opts(parser, mode)
 
     if mode == 'dvd':
         add_in_opts(parser, mode)
         add_dvd_opts(parser, mode)
-        add_bg_opts(parser, mode)
-        add_out_paths_opts(parser, mode)
         
-    elif mode == 'menu':
-        add_bg_opts(parser, mode)
-        add_out_paths_opts(parser, mode)
-
-    elif mode == 'bg':
-        add_bg_opts(parser, mode)
-        add_out_paths_opts(parser, mode)
+    add_menu_opts(parser, mode)
+    add_out_paths_opts(parser, mode)
     
     options = parser.parse_args()
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit()
+
     return options
 
     
 def add_in_paths_opts(parser, mode='dvd'):
+    desc = {}
+    desc['dvd'] = '''Input video files can be given either with --in-dirs 
+                     (directories containing video[/image/subtitle] files) or 
+                     with --in-vids (the video files themselves).  With either 
+                     option, menu-images and subtitle files will be 
+                     automatically added if they can be found in the same 
+                     directory as the video (same/similar name to the video, 
+                     folder.jpg, poster.png, etc), however, the --in-srts 
+                     and/or --menu-imgs options can be used to override this 
+                     behavior.  Menu labels will be inferred from the video 
+                     filenames (unless --label-from-dir or --label-from-img is 
+                     used) but are not added to the menu by default unless 
+                     --with-menu-labels is given or the --menu-labels option is 
+                     used to specify the text to be used for the 
+                     labels.'''  
+
+
     in_files = parser.add_argument_group(title='Input Paths')
+
+    if mode in ['dvd']:
+        in_files.description = desc['dvd']
+
     if mode == 'dvd':
         in_files.add_argument('-v', '--in-vids', metavar='PATH', nargs='*',
                                   help="""Video files""")
@@ -51,8 +84,18 @@ def add_in_paths_opts(parser, mode='dvd'):
                                   help="""Menu images (buttons)""")
         in_files.add_argument('-l', '--menu-labels', metavar='LABEL', nargs='*', 
                                   help="""Menu labels (optional)""")
-        in_files.add_argument('-b', '--menu-bg', metavar='PATH',
-                                  help="""Menu background image (optional)""")
+        in_files.add_argument('-b', '--menu-bg', metavar='PATH', default='gray',
+                                  help="""Menu background image (optional). 
+                                          May be given as a path to an image 
+                                          file or as a color name/value, e.g., 
+                                          "white" or "#ffffff".  (default: 
+                                          %(default)s)""")
+    if mode in ['dvd', 'menu']:
+        in_files.add_argument('-a', '--menu-audio', metavar='PATH', 
+                                 help="""Audio file to be used as audio for
+                                         the menu (optional).  If this option 
+                                         is not given, a silent audio track 
+                                         will be used instead.""")
 
 def add_in_opts(parser, mode='dvd'):
     in_opts = parser.add_argument_group(title='Input Options')
@@ -85,10 +128,10 @@ def add_in_opts(parser, mode='dvd'):
     in_opts.add_argument('--with-menu-labels', action='store_true', 
                              default=False, 
                              help="""This option adds labels below the 
-                                     menu-imgs even if the --menu-imgs option 
-                                     is not given. The labels are based on the 
-                                     video filenames unless the 
-                                     --label-from-img or --label-from-img 
+                                     menu-imgs even if the --menu-labels option 
+                                     is not given. The labels are inferred from 
+                                     the video filenames unless the 
+                                     --label-from-dir or --label-from-img 
                                      options are given.""")    
     in_opts.add_argument('--label-from-img', action='store_true',
                              help="""Infer menu-labels from menu-img 
@@ -106,7 +149,7 @@ def add_in_opts(parser, mode='dvd'):
                              help="""Skip encoding of video files.  Assume 
                                      video files are DVD compliant mpeg2.""")
     in_opts.add_argument('--unstack-vids', action='store_true',
-                             help='''Treat multiple input video files as 
+                             help='''Treat multiple input video files as a
                                      single video when their names only 
                                      differ by certain rules. e.g., 
                                      "video.cd1.ext", "video.cd2.ext"''')
@@ -180,57 +223,6 @@ def add_dvd_opts(parser, mode='dvd'):
                                       %(default)s)""")
 
 def add_menu_opts(parser, mode='dvd'):
-    menu_opts = parser.add_argument_group(title='Menu Options')
-    
-    # --with-menu-labels
-    if mode == 'dvd':
-        menu_opts.add_argument('--with-menu-labels', action='store_true', 
-                                   default=False, 
-                                   help="""This option adds labels below the 
-                                   menu-imgs even if the --menu-imgs option 
-                                   is not given. The labels are based on the 
-                                   video filenames unless the 
-                                   --label-from-img or --label-from-img 
-                                   options are given.""")    
-    
-    #~ # --menu-ar
-    #~ menu_ar = menu_opts.add_argument('--menu-ar', choices=['16:9', '4:3'])
-    #~ if mode in ['dvd']:
-        #~ menu_ar.help = """Menu aspect ratio. Without this option, it defaults
-                          #~ to 16:9 unless all titles are 4:3, or, if the 
-                          #~ --dvd-ar option is given it defaults to match 
-                          #~ --dvd-ar."""
-    #~ elif mode in ['menu']:
-        #~ menu_ar.default = '16:9'
-        #~ menu_ar.help = """Menu aspect ratio. (default: %(default)s)"""
-    
-    #~ menu_opts.add_argument('--label-line-height', type=int, metavar='PX', 
-                               #~ default=18,
-                               #~ help="""Line height in pixels for the 
-                                       #~ menu-labels. (default: %(default)s)""")
-    #~ menu_opts.add_argument('--label-lines', type=int, metavar='N', 
-                               #~ default=2,
-                               #~ help="""Max number of lines for the 
-                                       #~ menu-labels. Text will be ellipsized 
-                                       #~ if it would require more than this 
-                                       #~ many lines. (default: %(default)s)""")
-    #~ menu_opts.add_argument('--outer-padding', type=int, metavar='PX', 
-                               #~ default=80,
-                               #~ help="""Minimum padding in pixels between the 
-                                       #~ edge of the menu background and the 
-                                       #~ menu-imgs. (default: %(default)s)""")
-    #~ menu_opts.add_argument('--inner-padding', type=int, metavar='PX', 
-                               #~ default=40,
-                               #~ help="""Minimum padding in pixels between 
-                                       #~ each menu button. (default: 
-                                       #~ %(default)s)""")
-    #~ menu_opts.add_argument('--label-padding', type=int, metavar='PX', 
-                               #~ default=5,
-                               #~ help="""Minimum padding in pixels between the 
-                                       #~ menu buttons and labels. 
-                                       #~ (default: %(default)s)""")
-
-def add_bg_opts(parser, mode='dvd'):
     bg_opts = parser.add_argument_group(title='Menu Options')
 
     # --menu-ar
@@ -328,11 +320,7 @@ def add_out_paths_opts(parser, mode='dvd'):
                                help="""Base name prefix for generated files 
                                        (menu, log, etc)""")
 
-def add_out_opts(parser, mode='dvd'):
-    out_opts = parser.add_argument_group(title='Output Options')
-
-    
-    # ------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
 def make_dvd(options):
 
@@ -389,6 +377,9 @@ def make_dvd(options):
               outer_padding = options.outer_padding,
               inner_padding = options.inner_padding,
               no_loop_menu=True)
+
+def make_menu(options):
+    menu = DVDMenu(**vars(options))
 
 def make_bg(options):
     bg = BG(**vars(options))
