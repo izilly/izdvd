@@ -1562,7 +1562,7 @@ class DVD (object):
         if self.no_encode_v:
             log_items('Skipping encoding mpeg2 video...')
             for i in self.vids:
-                i['mpeg'] = i['in']
+                i['mpeg'] = i['in'][0]
             return
         log_items(heading='Encoding mpeg2 video...', items=False)
         if self.dvd_ar == 16/9:
