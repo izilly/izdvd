@@ -170,18 +170,16 @@ class BG (object):
         self.get_dims()
         self.make_bg()
         self.resize_bg()
-        #
-        #~ self.create_labels()
-        self.calc_cell_ar()
-        self.get_grid_size()
-        self.resize_buttons()
-        self.create_labels()
-        self.prepare_buttons()
-        #~ self.create_labels()
-        self.append_labels()
-        self.apply_shadows()
-        self.get_cell_locations()
-        self.overlay_buttons()
+        if self.button_imgs is not None:
+            self.calc_cell_ar()
+            self.get_grid_size()
+            self.resize_buttons()
+            self.create_labels()
+            self.prepare_buttons()
+            self.append_labels()
+            self.apply_shadows()
+            self.get_cell_locations()
+            self.overlay_buttons()
         self.resize_imgs()
         self.write()
     
@@ -202,7 +200,10 @@ class BG (object):
                                            '{}_sl_lb.png'.format(out_name))
     
     def get_imgs(self):
-        self.button_imgs = [Img(i) for i in self.menu_imgs]
+        if self.menu_imgs:
+            self.button_imgs = [Img(i) for i in self.menu_imgs]
+        else:
+            self.button_imgs = None
         if self.menu_bg and os.path.exists(self.menu_bg):
             self.bg_img = Img(self.menu_bg)
         else:
@@ -542,6 +543,8 @@ class BG (object):
     def overlay_buttons(self):
         '''Overlays the buttons onto the background image.
         '''
+        if self.button_imgs is None:
+            return
         self.highlight_img = self.bg_img.new_canvas()
         self.select_img = self.bg_img.new_canvas()
         for n,cell in enumerate(self.cell_locations):
@@ -566,6 +569,8 @@ class BG (object):
         self.bg_img.resize(width=self.storage_width, 
                            height=self.storage_height, 
                            ignore_aspect=True)
+        if self.button_imgs is None:
+            return
         if self.menu_ar == 16/9:
             if self.dvd_format.lower() == 'ntsc':
                 lb_h = 360
@@ -599,6 +604,8 @@ class BG (object):
         if out_file_sl_lb is None:
             out_file_sl_lb = self.path_sl_lb_img
         self.bg_img.write(out_file=out_file_bg)
+        if self.button_imgs is None:
+            return
         self.highlight_img.write(out_file=out_file_hl)
         self.select_img.write(out_file=out_file_sl)
         if self.menu_ar == 16/9:
@@ -800,7 +807,9 @@ class DVDMenu (object):
         o = subprocess.check_output(cmd, universal_newlines=True)
     
     def create_menu_mpg(self):
-        #~ self.buttons = []
+        if self.menu_imgs is None:
+            self.path_menu_mpg = self.path_bg_mpg
+            return
         self.create_menu_xml(self.bg.path_hl_img, 
                              self.bg.path_sl_img, 
                              self.path_menu_xml)
@@ -824,7 +833,7 @@ class DVDMenu (object):
         stream = etree.SubElement(subpictures, 'stream')
         spu = etree.SubElement(stream, 'spu')
         spu.set('start', '00:00:00.00')
-        spu.set('end', '00:01:30.00')
+        #~ spu.set('end', '00:01:30.00')
         spu.set('force', 'yes')
         spu.set('highlight', hl)
         #~ spu.set('select', sl)
