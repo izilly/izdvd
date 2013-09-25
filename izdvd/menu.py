@@ -26,7 +26,6 @@ import numbers
 import textwrap
 
 PROG_NAME = 'izdvd'
-BLANK_MPG = '/home/will/Videos/dvdauthoring/00-menus/blank.mpg'
 VIDEO_PLAYER = 'mplayer'
 IMAGE_VIEWER = 'display'
 
@@ -1550,6 +1549,13 @@ class DVD (object):
                             menu_ar=self.menu_ar,
                             dvd_format=self.dvd_format,
                             **menu_args)
+
+        self.blank_menu = DVDMenu(menu_imgs=None,
+                                  out_dir=self.out_dir,
+                                  out_name='blank_menu',
+                                  tmp_dir=self.tmp_dir,
+                                  menu_ar=self.menu_ar,
+                                  dvd_format=self.dvd_format)
     
     def encode_video(self):
         # TODO: self.vids[n]['in'] is now a list of paths 
@@ -1628,7 +1634,7 @@ class DVD (object):
             blank_menus_pre = etree.SubElement(blank_menus_pgc, 'pre')
             blank_menus_pre.text = 'jump vmgm menu;'
             blank_menus_vob = etree.SubElement(blank_menus_pgc, 'vob', 
-                                         file=BLANK_MPG)
+                                         file=self.blank_menu.path_menu_mpg)
             blank_menus_post = etree.SubElement(blank_menus_pgc, 'post')
             blank_menus_post.text = 'jump vmgm menu;'
             titles = etree.SubElement(titleset, 'titles')
