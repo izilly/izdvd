@@ -58,8 +58,6 @@ class Encoder (object):
             self.write_srt()
             self.create_subs_xml()
         self.passnum = '1'
-        
-        #~ self.encode()
     
     def setup_in_files(self):
         self.in_files_cat = None
@@ -74,19 +72,32 @@ class Encoder (object):
             f.write(lines)
     
     def setup_out_files(self):
-        self.cwd = os.getcwd()
-        self.in_filename = os.path.basename(self.in_file)
-        if self.out_file is None:
-            if self.out_dir is None:
-                self.out_dir = self.cwd
-            self.log_file = os.path.join(self.out_dir, self.in_filename+'.log')
-            self.out_file = os.path.join(self.out_dir, self.in_filename+'.mpg')
-            self.subs_srt = os.path.join(self.out_dir, self.in_filename+'.subs.utf8.srt')
-            self.subs_xml = os.path.join(self.out_dir, self.in_filename+'.subs.xml')
-            self.cat_file = os.path.join(self.out_dir, self.in_filename+'.cat.txt')
+        in_filename = os.path.basename(self.in_file)
+        in_name, in_ext = os.path.splitext(in_filename)
+        # out_file and out_dir
+        if self.out_file:
+            out_dir, out_filename = os.path.split(self.out_file)
+            self.out_dir = os.path.abspath(out_dir)
+            self.out_name, out_ext = os.path.splitext(out_filename)
+            if out_ext.lower() not in ['.mpg', '.mpeg']:
+                self.out_file = '{}.mpg'.format(self.out_file)
+                self.out_name = os.path.splitext(self.out_file)[0]
         else:
-            self.out_dir = os.path.abspath(os.path.split(self.out_file)[0])
-            self.log_file = os.path.splitext(self.out_file)[0] + '.log'
+            self.out_name = in_name
+            if not self.out_dir:
+                self.out_dir = os.getcwd()
+            self.out_file = os.path.join(self.out_dir, 
+                                         '{}.mpg'.format(self.out_name))
+        # other output
+        self.log_file = os.path.join(self.out_dir, 
+                                     '{}.log'.format(self.out_name))
+        self.subs_srt = os.path.join(self.out_dir, 
+                                     '{}.srt'.format(self.out_name))
+        self.subs_xml = os.path.join(self.out_dir, 
+                                     '{}.subs.xml'.format(self.out_name))
+        self.cat_file = os.path.join(self.out_dir, 
+                                     '{}.cat.txt'.format(self.out_name))
+        # make out_dir if it doesn't exist
         if not os.path.exists(self.out_dir):
             os.makedirs(self.out_dir)
     
