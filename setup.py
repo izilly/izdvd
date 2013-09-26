@@ -13,7 +13,7 @@ setup(
     packages=['izdvd'],
     author='William Adams',
     author_email='willadams+dev@gmail.com',
-    url='https://github.com/izzilly/izdvd'
+    url='https://github.com/izzilly/izdvd',
     license='LICENSE',
     classifiers=['Development Status :: 4 - Beta',
                  'Environment :: Console',
