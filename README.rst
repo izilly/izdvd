@@ -57,10 +57,14 @@ License
 Installation
 ============
 
-Download from::
+From pypi::
 
-    https://github.com/izzilly/izdvd
+    pip install izdvd
 
-Then run::
+Or download from::
+
+    https://github.com/izzilly/izdvd/archive/master.zip
+
+Then unpack and run::
 
     python setup.py
