@@ -143,9 +143,9 @@ class Img (object):
         self.colors = out_file
         return out_file
     
-    def resize(self, width=None, height=None, ignore_aspect=False, no_antialias=False, 
-               no_dither=False, colors=None, remap=None, out_file=None, 
-               out_fmt='png'):
+    def resize(self, width=None, height=None, ignore_aspect=False, 
+               no_antialias=False, no_dither=False, colors=None, remap=None, 
+               out_file=None, out_fmt='png'):
         if out_file is None:
             out_file = self.get_tmpfile('{}x{}'.format(width, height), out_fmt)
         flags=''
@@ -168,7 +168,6 @@ class Img (object):
             remap = self.get_colors()
         if remap:
             cmd += ['-remap', remap]
-            
         
         o = subprocess.check_output(cmd + [out_file], universal_newlines=True)
         self.update_versions(out_file)
@@ -296,7 +295,8 @@ class Img (object):
                 y_offset -= img.y_offset
             img = img.path
         offsets = '{:+}{:+}'.format(x_offset, y_offset)
-        o = subprocess.check_output(['convert', self.path, '-background', 'none', 
+        o = subprocess.check_output(['convert', self.path, 
+                                     '-background', 'none', 
                                      '-page', offsets, img, 
                                      '-layers', layers_method, '+repage', 
                                      out_file], 
@@ -694,7 +694,8 @@ class TextImg(Img):
             for word in reversed(prev):
                 new_line = prev[-1:] + line
                 new_prev = prev[:-1]
-                w,h,x,y = self.get_size(' '.join(new_line), pts, interword_spacing)
+                w,h,x,y = self.get_size(' '.join(new_line), pts, 
+                                        interword_spacing)
                 if w <= max_w:
                     cur_space_sq = self._get_unused_w_sq([line, prev], pts,
                                                          interword_spacing)
