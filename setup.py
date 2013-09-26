@@ -12,7 +12,7 @@ with open('README.rst') as f:
 
 setup(
     name='izdvd',
-    version='0.1.1',
+    version='0.1.2',
     packages=['izdvd'],
     scripts=['bin/izdvd', 'bin/izdvdmenu', 'bin/izdvdbg'],
     author='William Adams',
