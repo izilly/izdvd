@@ -26,7 +26,7 @@ setup(
                  'Environment :: Console',
                  'Intended Audience :: End Users/Desktop',
                  'License :: OSI Approved :: BSD License',
-                 'Natural Language :: English'
+                 'Natural Language :: English',
                  'Operating System :: POSIX :: Linux',
                  'Programming Language :: Python',
                  'Programming Language :: Python :: 3',
