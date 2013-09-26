@@ -859,6 +859,7 @@ class DVD (object):
                  out_dir=None, 
                  tmp_dir=None,
                  # output options
+                 no_prompt=False,
                  with_menu=True, 
                  menu_only=False,
                  with_author_dvd=True,
@@ -911,6 +912,7 @@ class DVD (object):
         self.out_dir=out_dir
         self.tmp_dir=tmp_dir
         # output options
+        self.no_prompt=no_prompt
         self.with_menu=with_menu 
         self.menu_only=menu_only
         self.with_author_dvd=with_author_dvd
@@ -1260,6 +1262,8 @@ class DVD (object):
         log_items(heading='Menu', items=log_data, lines_before=1)
     
     def prompt_input_output(self):
+        if self.no_prompt:
+            return
         choices = ['Continue',
                    'Play a video',
                    'List contents of a directory']
@@ -1282,6 +1286,8 @@ class DVD (object):
                 print('\n{}\n\n{}'.format(path, o.strip()))
     
     def prompt_menu(self):
+        if self.no_prompt:
+            return
         choices = ['Continue',
                    'Display Menu Image',
                    'Play Menu Video']

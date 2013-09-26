@@ -29,14 +29,19 @@ def get_options(mode='dvd'):
     
     parser = argparse.ArgumentParser(formatter_class=HelpFormatter, 
                                      description=desc[mode])
-    add_in_paths_opts(parser, mode)
 
-    if mode == 'dvd':
+    if mode in ['dvd']:
+        add_in_paths_opts(parser, mode)
         add_in_opts(parser, mode)
         add_dvd_opts(parser, mode)
+        add_menu_opts(parser, mode)
+        add_output_opts(parser, mode)
+        add_out_paths_opts(parser, mode)
         
-    add_menu_opts(parser, mode)
-    add_out_paths_opts(parser, mode)
+    elif mode in ['menu', 'bg']:
+        add_in_paths_opts(parser, mode)
+        add_menu_opts(parser, mode)
+        add_out_paths_opts(parser, mode)
     
     options = parser.parse_args()
 
@@ -306,6 +311,14 @@ def add_menu_opts(parser, mode='dvd'):
                                      is the same as the value given with 
                                      --button-highlight-thickness.""")
 
+def add_output_opts(parser, mode='dvd'):
+    out_opts = parser.add_argument_group(title='Output Options')
+    out_opts.add_argument('--no-prompt', action='store_true', default=False,
+                               help="""By default the script pauses at various 
+                                       points to prompt for user input.  This 
+                                       option overrides that behavior and
+                                       causes the script to run 
+                                       uninterrupted.""")
 
 def add_out_paths_opts(parser, mode='dvd'):
     out_files = parser.add_argument_group(title='Output Paths')
@@ -350,6 +363,7 @@ def make_dvd(options):
               out_dir=options.out_dir, 
               tmp_dir=options.tmp_dir,
               # output options
+              no_prompt=options.no_prompt,
               with_menu=options.with_menu, 
               #~ menu_only=options.menu_only,
               with_author_dvd=options.with_author_dvd,
