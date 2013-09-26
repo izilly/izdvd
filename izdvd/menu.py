@@ -268,7 +268,6 @@ class BG (object):
                          and display aspect ratios.)
         '''
         ars = Counter([i.ar for i in self.button_imgs])
-        #~ base_ar = ars.most_common()[0][0] * self.multiplier
         base_ar = ars.most_common()[0][0]
         self.cell_ar = base_ar
     
@@ -356,7 +355,6 @@ class BG (object):
         padding_h = self.inner_padding * (rows - 1)
         label_padding_h = (self.label_line_height*self.label_lines 
                            + self.label_padding) * rows
-        #~ label_padding_h = (self.label_height + self.label_padding) * rows
         shadow_padding = self.calculate_shadow_padding()
         shadow_padding_x = shadow_padding['x']
         shadow_padding_y = shadow_padding['y']
@@ -369,7 +367,6 @@ class BG (object):
         if cell_h > row_h:
             cell_h = row_h
             cell_w = cell_h*cell_ar
-        # return area, cell_width, cell_height
         return cell_w*cell_h, math.floor(cell_w), math.floor(cell_h)
     
     def calculate_shadow_padding(self):
@@ -416,14 +413,11 @@ class BG (object):
                         (modifies self.button_imgs)
         '''
         for i in self.button_imgs:
-            #~ i.storage_ar = i.ar * self.multiplier
-            #~ if i.storage_ar > self.cell_ar:
             if i.ar > self.cell_ar:
                 w = self.cell_w
                 h = math.floor(self.cell_w / self.cell_ar)
                 i.x_padding = 0
                 i.y_padding = math.floor((self.cell_h - h) / 2)
-            #~ elif i.storage_ar < self.cell_ar:
             elif i.ar < self.cell_ar:
                 w = math.floor(self.cell_h * self.cell_ar)
                 h = self.cell_h
@@ -446,7 +440,6 @@ class BG (object):
                          highlight/select images as an attribute to each.)
         '''
         for i in self.button_imgs:
-            #~ i.resize(self.cell_w, self.cell_h)
             hl = i.new_canvas()
             hl.border(1, shave=True)
             hl.border(self.button_highlight_thickness, 
@@ -511,7 +504,6 @@ class BG (object):
         cells = len(self.button_imgs)
         cols = self.cols
         rows = self.rows
-        #~ label_height = self.label_line_height * self.label_lines
         label_height = self.label_height
         shadow_padding = self.calculate_shadow_padding()
         cell_w = self.cell_w + shadow_padding['x']
@@ -734,20 +726,6 @@ class DVDMenu (object):
             if v is not None:
                 bg_args[k] = v
         self.bg = BG(menu_imgs=self.menu_imgs, **bg_args)
-
-        #~ self.bg = BG(menu_imgs=self.menu_imgs, 
-                     #~ menu_bg=self.menu_bg, 
-                     #~ menu_labels=self.menu_labels,
-                     #~ out_name=self.out_name,
-                     #~ out_dir=self.out_dir, 
-                     #~ tmp_dir=self.tmp_dir,
-                     #~ outer_padding=self.outer_padding, 
-                     #~ inner_padding=self.inner_padding, 
-                     #~ label_padding=self.label_padding, 
-                     #~ menu_ar=self.menu_ar,
-                     #~ dvd_format=self.dvd_format,
-                     #~ label_line_height=self.label_line_height, 
-                     #~ label_lines=self.label_lines)
     
     def convert_to_m2v(self, frames=360):
         frames = str(frames)
@@ -778,7 +756,6 @@ class DVDMenu (object):
         self.frames = frames
     
     def convert_audio(self):
-        # dd if=/dev/zero bs=4 count=number-of-samples | toolame -b 128 -s 48 /dev/stdin output.m2a
         if self.menu_audio:
             in_file = ['-i', self.menu_audio]
             cmd = ['ffmpeg'] + in_file + ['-ac', '2', '-ar', '48000', 
@@ -967,48 +944,12 @@ class DVD (object):
         #-------------------------------
         if self.menu_ar is None:
             self.menu_ar = self.dvd_ar
-
-        #self.in_parent = in_parent
-        #self.one_dir = one_dir
-        #self.with_subs = with_subs
-        #self.sub_lang = sub_lang
-        #self.audio_lang = audio_lang
-        #self.with_menu = with_menu
-        #self.with_menu_labels = with_menu_labels
-        #self.label_from_img = label_from_img
-        #self.label_from_dir = label_from_dir
-        #self.strip_label_year = strip_label_year
-        #self.menu_label_line_height = menu_label_line_height
-        #self.dvd_format = dvd_format
-        #self.dvd_ar = dvd_ar
-        #if menu_ar is None:
-            #self.menu_ar = dvd_ar
-        #else:
-            #self.menu_ar = menu_ar
-        #self.vbitrate = vbitrate
-        #self.abitrate = abitrate
-        #self.two_pass = two_pass
-        #self.no_encode_v = no_encode_v
-        #self.no_encode_a = no_encode_a
-        #self.dvd_size_bits = dvd_size_bits
-        #self.dvd_size_bytes = dvd_size_bits / 8
-        #self.separate_titles = separate_titles
-        #self.separate_titlesets = separate_titlesets
-        #self.ar_threshold = ar_threshold
-        #self.no_loop_menu = no_loop_menu
-        #self.menu_only = menu_only
-        #self.with_author_dvd = with_author_dvd
-        #self.unstack_vids = unstack_vids
-        # setup paths
         self.get_in_vids()
         self.get_menu_imgs()
         self.get_menu_labels()
         self.get_subs()
         self.get_out_paths()
-        #~ self.get_out_files(out_name, out_dvd_dir, out_files_dir, tmp_dir)
-        #~ self.get_in_files(in_vids, in_dirs, menu_imgs, menu_labels, menu_bg,
-                          #~ in_srts)
-        # get information about the video files
+        # get information about input video
         self.get_media_info()
         self.log_output_info()
         self.log_input_info()
@@ -1030,7 +971,6 @@ class DVD (object):
             self.author_dvd()
     
     def get_out_paths(self):
-        
         paths = utils.get_out_paths(PROG_NAME, self.out_name, self.out_dir,
                                     self.tmp_dir, self.dvd_size_bytes * 1.2)
         self.out_name, self.out_dir, self.tmp_dir = paths
@@ -1069,8 +1009,9 @@ class DVD (object):
             if not self.in_dirs:
                 raise
             for d in self.in_dirs:
-                for pat in self.vid_fmts:
-                    found = sorted(glob.glob(os.path.join(d, '*.{}'.format(pat))))
+                for fmt in self.vid_fmts:
+                    pat = os.path.join(d, '*.{}'.format(fmt))
+                    found = sorted(glob.glob(pat))
                     if found:
                         if self.one_vid_per_dir:
                             in_vids.extend(found[:1])
@@ -1086,9 +1027,6 @@ class DVD (object):
         if not self.with_menu:
             self.menu_imgs = [None for i in self.in_vids]
             return
-        #~ if not self.menu_bg:
-            #~ bg = CanvasImg(720, 480, 'gray')
-            #~ self.menu_bg = bg.path
         if not self.menu_imgs:
             self.menu_imgs = []
             for i in self.in_vids:
@@ -1132,96 +1070,6 @@ class DVD (object):
                     self.in_srts.append(s)
             else:
                 self.in_srts = [None for i in self.in_vids]
-
-    
-    def get_in_files(self, in_vids, in_dirs,
-                     menu_imgs, menu_labels, menu_bg,
-                     in_srts):
-        vid_fmts = ['*.mp4', '*.avi', '*.mkv']
-        img_fmts = ['*.png', '*.jpg', '*.bmp', '*.gif']
-        sub_fmts = ['*.srt']
-        if not in_vids:
-            if self.unstack_vids is None:
-                self.unstack_vids = True
-            in_vids = []
-            if not in_dirs:
-                if not self.in_parent:
-                    raise
-                if self.one_vid_per_dir:
-                    in_dirs = [self.in_parent]
-                else:
-                    in_dirs = sorted([os.path.join(self.in_parent, i) 
-                                for i in os.listdir(self.in_parent) if
-                                os.path.isdir(os.path.join(self.in_parent, i))])
-            for d in in_dirs:
-                for pat in vid_fmts:
-                    found = sorted(glob.glob(os.path.join(d, pat)))
-                    if found:
-                        if not self.one_vid_per_dir:
-                            in_vids.extend(found[:1])
-                            break
-                        else:
-                            in_vids.extend(found)
-            in_vids = [i for i in in_vids if i is not None]
-        else:
-            if self.unstack_vids is None:
-                self.unstack_vids = False
-        
-        if self.with_menu:
-            if not menu_bg:
-                bg = CanvasImg(720, 480, 'gray')
-                menu_bg = bg.path
-            if not menu_imgs:
-                menu_imgs = []
-                for i in in_vids:
-                    img = self.get_matching_file(i, 
-                                                 ['png', 'jpg', 'bmp', 'gif'], 
-                                                 ['poster', 'folder'])
-                    menu_imgs.append(img)
-            
-        if not menu_labels:
-            menu_labels = []
-            # get labels
-            if self.label_from_img:
-                label_list = menu_imgs
-            else:
-                label_list = in_vids
-            if self.label_from_dir:
-                pt = 0
-            else:
-                pt = 1
-            
-            menu_labels = [os.path.splitext(
-                             os.path.basename(os.path.split(i)[pt]))[0]
-                      if i is not None else None 
-                      for i in label_list]
-            vid_labels = menu_labels
-            if self.with_menu and self.with_menu_labels:
-                if self.strip_label_year:
-                    pat = r'\s*\([-./\d]{2,12}\)\s*$'
-                    menu_labels = [re.sub(pat, '', i) for i in menu_labels]
-            else:
-                menu_labels = None
-                
-        if self.with_subs:
-            if not in_srts:
-                in_srts = []
-                for i in in_vids:
-                    s = self.get_matching_file(i, ['srt'], [])
-                    if s not in in_srts:
-                        in_srts.append(s)
-        
-        self.in_vids = in_vids
-        self.in_dirs = in_dirs
-        self.menu_imgs = menu_imgs
-        self.menu_labels = menu_labels
-        self.vid_labels = vid_labels
-        self.menu_bg = menu_bg
-        self.in_srts = in_srts
-        
-        for i in ['menu_imgs', 'menu_labels', 'in_srts']:
-            if getattr(self, i) is None:
-                setattr(self, i, [None for v in self.in_vids])
     
     def get_matching_file(self, vid, fmts, names=[]):
         dirname, basename = os.path.split(vid)
@@ -1367,7 +1215,6 @@ class DVD (object):
                                              commonprefix) if i['img'] else None
                 else:
                     in_img = None
-                
                 #~ in_srt = os.path.relpath(i['srt'], commonprefix)
             else:
                 in_dir = None
@@ -1445,7 +1292,8 @@ class DVD (object):
             elif resp == 0:
                 break
             if resp == 1:
-                o = subprocess.check_call([IMAGE_VIEWER, self.menu.bg.path_bg_img])
+                o = subprocess.check_call([IMAGE_VIEWER, 
+                                           self.menu.bg.path_bg_img])
             elif resp == 2:
                 o = subprocess.check_call([VIDEO_PLAYER, 
                                            self.menu.path_menu_mpg])
@@ -1534,12 +1382,6 @@ class DVD (object):
             v = getattr(self, k)
             if v is not None:
                 menu_args[k] = v
-        #~ self.menu = DVDMenu(self.menu_bg, self.menu_imgs, 
-                            #~ button_labels=self.menu_labels, 
-                            #~ label_line_height=self.menu_label_line_height,
-                            #~ out_dir=self.out_files_dir,
-                            #~ out_name=self.out_name,
-                            #~ menu_ar=self.menu_ar)
         self.menu = DVDMenu(self.menu_imgs, 
                             menu_bg=self.menu_bg,
                             menu_labels=self.menu_labels, 
@@ -1660,10 +1502,6 @@ class DVD (object):
     
     def populate_pgcgroup(self, in_vids, separate_titles, call_target):
         groups = []
-        #~ vob_sets = []
-        #~ for v in in_vids:
-            #~ vobs = [etree.Element('vob', file=i) for i in v]
-            #~ vob_sets.append(vobs)
         vobs = [etree.Element('vob', file=i) for i in in_vids]
         if separate_titles:
             for n,i in enumerate(vobs):
@@ -1678,7 +1516,6 @@ class DVD (object):
                 groups.append(pgc)
         else:
             pgc = etree.Element('pgc')
-            #~ vobs = [v for s in vob_sets for v in s]
             pgc.extend(vobs)
             post = etree.SubElement(pgc, 'post')
             post.text = call_target
