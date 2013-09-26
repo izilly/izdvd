@@ -7,14 +7,21 @@
 
 from distutils.core import setup
 
+with open('README.rst') as f:
+    long_description = f.read()
+
 setup(
     name='izdvd',
     version='0.1.0',
     packages=['izdvd'],
+    scripts=['bin/izdvd', 'bin/izdvdmenu', 'bin/izdvdbg'],
     author='William Adams',
     author_email='willadams+dev@gmail.com',
     url='https://github.com/izzilly/izdvd',
-    license='LICENSE',
+    license='BSD License',
+    description=('A set of python scripts for authoring DVDs '
+                 'and/or DVD menus with little or no user interaction.'),
+    long_description=long_description,
     classifiers=['Development Status :: 4 - Beta',
                  'Environment :: Console',
                  'Intended Audience :: End Users/Desktop',
@@ -24,5 +31,6 @@ setup(
                  'Programming Language :: Python',
                  'Programming Language :: Python :: 3',
                  'Topic :: Multimedia :: Video',
-                 'Topic :: Multimedia :: Video :: Conversion']
+                 'Topic :: Multimedia :: Video :: Conversion'],
+    platforms=['linux']
     )
