@@ -238,7 +238,8 @@ def add_menu_opts(parser, mode='dvd'):
     
     bg_opts.add_argument('--dvd-format', metavar='FMT', 
                                default='NTSC',
-                               help="""DVD format. (NTSC or PAL, default: %(default)s)""")
+                               help="""DVD format. 
+                                       (NTSC or PAL, default: %(default)s)""")
     bg_opts.add_argument('--outer-padding', type=int, metavar='PX', 
                                default=80,
                                help="""Minimum padding in pixels between the 
@@ -312,9 +313,9 @@ def add_out_paths_opts(parser, mode='dvd'):
                                help="""Output directory""")
     out_files.add_argument('-t', '--tmp-dir', metavar='PATH',
                                help="""Temp directory (for transcoding video 
-                                       files, etc.) By default /tmp, or whatever 
-                                       tempfile.gettempdir() returns will be 
-                                       used if there is enough space 
+                                       files, etc.) By default /tmp, or 
+                                       whatever tempfile.gettempdir() returns 
+                                       will be used if there is enough space 
                                        available.""")
     out_files.add_argument('-n', '--out-name', metavar='NAME',
                                help="""Base name prefix for generated files 
