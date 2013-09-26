@@ -32,8 +32,6 @@ def prompt_user_list(choices, prompt=None,
     print(choices)
     if choices_sep:
         print(choices_sep*sep_length)
-    
-    #~ msg = '\n\n'.join([choices, prompt])
     while True:
         response = input(prompt).lower()
         if response == '':
