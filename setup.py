@@ -13,5 +13,16 @@ setup(
     packages=['izdvd'],
     author='William Adams',
     author_email='willadams+dev@gmail.com',
+    url='https://github.com/izzilly/izdvd'
     license='LICENSE',
-)
+    classifiers=['Development Status :: 4 - Beta',
+                 'Environment :: Console',
+                 'Intended Audience :: End Users/Desktop',
+                 'License :: OSI Approved :: BSD License',
+                 'Natural Language :: English'
+                 'Operating System :: POSIX :: Linux',
+                 'Programming Language :: Python',
+                 'Programming Language :: Python :: 3',
+                 'Topic :: Multimedia :: Video',
+                 'Topic :: Multimedia :: Video :: Conversion']
+    )

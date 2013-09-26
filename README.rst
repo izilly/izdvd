@@ -57,7 +57,7 @@ License
 Installation
 ============
 
-Download the source from::
+Download from::
 
     https://github.com/izzilly/izdvd
 
