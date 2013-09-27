@@ -5,7 +5,9 @@
 #  Distributed under the terms of the Modified BSD License.
 #  The full license is in the file LICENSE, distributed with this software.
 
-from izdvd.menu import DVD, DVDMenu, BG
+from izdvd.bg import BG
+from izdvd.dvdmenu import DVDMenu
+from izdvd.dvd import DVD
 from izdvd.utils import HelpFormatter
 import re
 import os
