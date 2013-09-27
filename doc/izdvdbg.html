@@ -1,0 +1,85 @@
+<!--
+   Copyright (c) 2013 William Adams
+   Distributed under the terms of the Modified BSD License.
+   The full license is in the file LICENSE, distributed with this software.
+-->
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+	<title>izdvdbg Usage: izdvd</title>
+	<meta http-equiv="content-type" content="text/html;charset=utf-8" />
+</head>
+
+<body>
+    <a href="index.html">izdvd Documentation</a>
+    <hr>
+    <h1>izdvdbg</h1>
+	<pre>
+    usage: izdvdbg [-h] [-i [PATH [PATH ...]]] [-l [LABEL [LABEL ...]]] [-b PATH]
+                   [--menu-ar {16:9,4:3}] [--dvd-format FMT] [--outer-padding PX] [--inner-padding PX]
+                   [--label-padding PX] [--label-line-height PX] [--label-lines N]
+                   [--button-border-color COLOR] [--button-border-thickness PX]
+                   [--button-highlight-color COLOR] [--button-highlight-thickness PX]
+                   [--button-select-color COLOR] [-o PATH] [-t PATH] [-n NAME]
+    
+    Make a DVD menu background. Outputs a set of image and xml files that can be used to create a DVD
+    menu with spumux (part of the dvdauthor package).
+    
+    optional arguments:
+      -h --help                              show this help message and exit
+    
+    Input Paths:
+      -i, --menu-imgs [PATH [PATH ...]]      Menu images (buttons)
+      -l, --menu-labels [LABEL [LABEL ...]]  Menu labels (optional)
+      -b, --menu-bg PATH                     Menu background image (optional). May be given as a path
+                                             to an image file or as a color name/value, e.g., "white"
+                                             or "#ffffff". (default: gray)
+    
+    Menu Options:
+      --menu-ar {16:9,4:3}                   Menu aspect ratio. (default: 16:9)
+      --dvd-format FMT                       DVD format. (NTSC or PAL, default: NTSC)
+      --outer-padding PX                     Minimum padding in pixels between the edge of the menu
+                                             background and the menu-imgs. (default: 80)
+      --inner-padding PX                     Minimum padding in pixels between each menu button.
+                                             (default: 40)
+      --label-padding PX                     Minimum padding in pixels between the menu buttons and
+                                             labels. (default: 5)
+      --label-line-height PX                 Line height in pixels for the menu-labels. (default: 18)
+      --label-lines N                        Max number of lines for the menu-labels. Text will be
+                                             ellipsized if it would require more than this many lines.
+                                             (default: 2)
+      --button-border-color COLOR            Color of the border drawn around each button (menu-img).
+      --button-border-thickness PX           Size in pixels of the border drawn around each button
+                                             (menu-img).
+      --button-highlight-color COLOR         Color of the highlight/border drawn around the currently
+                                             selected button (menu-img) while the menu is navigated
+                                             using a remote/keyboard.
+      --button-highlight-thickness PX        Size in pixels of the highlight/border drawn around the
+                                             currently selected button (menu-img) while the menu is
+                                             navigated using a remote/keyboard. Note that the
+                                             highlight is drawn on top of the button-border, not
+                                             outside of it. Therefore, to make it thicker than the
+                                             button-border, this value must be larger than --button-
+                                             border-thickness. This is recommended, especially for a
+                                             menu with only two buttons, otherwise it is difficult to
+                                             determine which button is currently highlighted.
+      --button-select-color COLOR            Color of the border drawn around the button (menu-img)
+                                             for a moment immediately after it has been "clicked" with
+                                             the remote/keyboard. The thickness is the same as the
+                                             value given with --button-highlight-thickness.
+    
+    Output Paths:
+      -o, --out-dir PATH                     Output directory
+      -t, --tmp-dir PATH                     Temp directory (for transcoding video files, etc.) By
+                                             default /tmp, or whatever tempfile.gettempdir() returns
+                                             will be used if there is enough space available.
+      -n, --out-name NAME                    Base name prefix for generated files (menu, log, etc)
+    </pre>
+    <hr>
+    <a href="https://github.com/izzilly/izdvd">https://github.com/izzilly/izdvd</a>
+</body>
+
+</html>
