@@ -172,7 +172,7 @@ class DVD (object):
         self.out_files_dir = os.path.join(self.out_dir, 'files')
         self.out_dvd_xml = os.path.join(self.out_files_dir, 
                                         '{}_dvd.xml'.format(self.out_name))
-        self.out_log = os.path.join(self.out_files_dir, 
+        self.out_log = os.path.join(self.out_dir, 
                                     '{}.log'.format(self.out_name))
         # make dirs if they don't exist
         for i in [self.out_dvd_dir, self.out_files_dir, self.tmp_dir]:
@@ -597,7 +597,7 @@ class DVD (object):
         self.menu = DVDMenu(self.menu_imgs, 
                             menu_bg=self.menu_bg,
                             menu_labels=self.menu_labels, 
-                            out_dir=self.out_dir,
+                            out_dir=self.out_files_dir,
                             out_name=self.out_name,
                             tmp_dir=self.tmp_dir,
                             menu_ar=self.menu_ar,
@@ -607,7 +607,7 @@ class DVD (object):
                             **menu_args)
 
         self.blank_menu = DVDMenu(menu_imgs=None,
-                                  out_dir=self.out_dir,
+                                  out_dir=self.out_files_dir,
                                   out_name='blank_menu',
                                   tmp_dir=self.tmp_dir,
                                   menu_ar=self.menu_ar,

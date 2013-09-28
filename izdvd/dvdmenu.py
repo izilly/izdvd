@@ -104,20 +104,25 @@ class DVDMenu (object):
         paths = utils.get_out_paths(config.PROG_NAME, self.out_name, 
                                     self.out_dir, self.tmp_dir, 150*1024*1024)
         self.out_name, self.out_dir, self.tmp_dir = paths
-        self.out_files_dir = os.path.join(self.out_dir, 'files')
-        fdir = self.out_files_dir
-        out_name = self.out_name
-        self.path_bg_m2v = os.path.join(fdir, '{}_bg.m2v'.format(out_name))
-        self.path_bg_ac3 = os.path.join(fdir, '{}_bg.ac3'.format(out_name))
-        self.path_bg_mpg = os.path.join(fdir, '{}_bg.mpg'.format(out_name))
-        self.path_menu_mpg = os.path.join(fdir, '{}_menu.mpg'.format(out_name))
-        self.path_menu_lb_mpg = os.path.join(fdir, 
-                                             '{}_menu_lb.mpg'.format(out_name))        
-        self.path_menu_xml = os.path.join(fdir, '{}_menu.xml'.format(out_name))
-        self.path_menu_lb_xml = os.path.join(fdir, 
-                                             '{}_menu_lb.xml'.format(out_name))
+        self.out_files_dir = os.path.join(self.out_dir, 'menu-files')
+        if not os.path.exists(self.out_files_dir):
+            os.makedirs(self.out_files_dir)
+        self.path_menu_mpg = os.path.join(self.out_dir, 
+                                          '{}_menu.mpg'.format(self.out_name))
+        self.path_bg_m2v = os.path.join(self.out_files_dir, 
+                                        '{}_bg.m2v'.format(self.out_name))
+        self.path_bg_ac3 = os.path.join(self.out_files_dir, 
+                                        '{}_bg.ac3'.format(self.out_name))
+        self.path_bg_mpg = os.path.join(self.out_files_dir, 
+                                        '{}_bg.mpg'.format(self.out_name))
+        self.path_menu_lb_mpg = os.path.join(self.out_files_dir, 
+                                        '{}_menu_lb.mpg'.format(self.out_name))        
+        #~ self.path_menu_xml = os.path.join(self.out_files_dir, 
+                                          #~ '{}_menu.xml'.format(self.out_name))
+        #~ self.path_menu_lb_xml = os.path.join(self.out_files_dir, 
+                                        #~ '{}_menu_lb.xml'.format(self.out_name))
         if not self.out_log:
-            self.out_log = os.path.join(self.out_files_dir, 
+            self.out_log = os.path.join(self.out_dir, 
                                         '{}.log'.format(self.out_name))
         if self.no_logging:
             self.out_log = os.devnull
@@ -136,9 +141,9 @@ class DVDMenu (object):
         bg_attrs = ['menu_bg',
                     'menu_labels',
                     # output paths 
-                    'out_name',
-                    'out_dir',
-                    'tmp_dir',
+                    #~ 'out_name',
+                    #~ 'out_dir',
+                    #~ 'tmp_dir',
                     # padding
                     'outer_padding',
                     'inner_padding',
@@ -168,6 +173,9 @@ class DVDMenu (object):
                             items=False, lines_before=1, sep='', sep_post='-',
                             logger=self.logger)
         self.bg = BG(menu_imgs=self.menu_imgs, 
+                     out_name=self.out_name,
+                     out_dir=self.out_files_dir,
+                     tmp_dir=self.tmp_dir,
                      out_log=self.out_log, 
                      no_logging=self.no_logging,
                      mode=self.mode,
@@ -265,25 +273,26 @@ class DVDMenu (object):
     
     def create_menu_mpg(self):
         if self.menu_imgs is None:
-            self.path_menu_mpg = self.path_bg_mpg
+            os.rename(self.path_bg_mpg, self.path_menu_mpg)
+            #~ self.path_menu_mpg = self.path_bg_mpg
             return
-        self.create_menu_xml(self.bg.path_hl_img, 
-                             self.bg.path_sl_img, 
-                             self.path_menu_xml,
-                             mode='normal')
+        #~ self.create_menu_xml(self.bg.path_hl_img, 
+                             #~ self.bg.path_sl_img, 
+                             #~ self.path_menu_xml,
+                             #~ mode='normal')
         self.multiplex_buttons(self.path_bg_mpg, 
                                self.path_menu_mpg, 
-                               self.path_menu_xml, 
+                               self.bg.path_menu_xml, 
                                '0',
                                mode='normal')
         if self.menu_ar == 16/9:
-            self.create_menu_xml(self.bg.path_hl_lb_img, 
-                                 self.bg.path_sl_lb_img, 
-                                 self.path_menu_lb_xml,
-                                 mode='letterboxed')
+            #~ self.create_menu_xml(self.bg.path_hl_lb_img, 
+                                 #~ self.bg.path_sl_lb_img, 
+                                 #~ self.path_menu_lb_xml,
+                                 #~ mode='letterboxed')
             self.multiplex_buttons(self.path_menu_mpg, 
                                    self.path_menu_lb_mpg, 
-                                   self.path_menu_lb_xml, 
+                                   self.bg.path_menu_lb_xml, 
                                    '1',
                                    mode='letterboxed')
             os.remove(self.path_menu_mpg)

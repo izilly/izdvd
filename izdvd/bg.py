@@ -9,6 +9,7 @@
 from izdvd.image import Img, CanvasImg, TextImg
 from izdvd import utils
 from izdvd import config
+from lxml import etree
 import math
 from collections import Counter
 import os
@@ -106,24 +107,29 @@ class BG (object):
             self.overlay_buttons()
         self.resize_imgs()
         self.write()
+        self.get_xml()
     
     def get_out_paths(self):
         paths = utils.get_out_paths(config.PROG_NAME, self.out_name, 
                                     self.out_dir, self.tmp_dir, 50*1024*1024)
         self.out_name, self.out_dir, self.tmp_dir = paths
-        self.out_files_dir = os.path.join(self.out_dir, 'files')
-        fdir = self.out_files_dir
-        out_name = self.out_name
         
-        self.path_bg_img = os.path.join(fdir, '{}_bg.png'.format(out_name))
-        self.path_hl_img = os.path.join(fdir, '{}_hl.png'.format(out_name))
-        self.path_sl_img = os.path.join(fdir, '{}_sl.png'.format(out_name))
-        self.path_hl_lb_img = os.path.join(fdir, 
-                                           '{}_hl_lb.png'.format(out_name))
-        self.path_sl_lb_img = os.path.join(fdir, 
-                                           '{}_sl_lb.png'.format(out_name))
+        self.path_bg_img = os.path.join(self.out_dir, 
+                                        '{}_bg.png'.format(self.out_name))
+        self.path_hl_img = os.path.join(self.out_dir, 
+                                        '{}_hl.png'.format(self.out_name))
+        self.path_sl_img = os.path.join(self.out_dir, 
+                                        '{}_sl.png'.format(self.out_name))
+        self.path_hl_lb_img = os.path.join(self.out_dir, 
+                                  '{}_hl_letterboxed.png'.format(self.out_name))
+        self.path_sl_lb_img = os.path.join(self.out_dir, 
+                                  '{}_sl_letterboxed.png'.format(self.out_name))
+        self.path_menu_xml = os.path.join(self.out_dir, 
+                                          '{}_menu.xml'.format(self.out_name))
+        self.path_menu_lb_xml = os.path.join(self.out_dir, 
+                                '{}_menu_letterboxed.xml'.format(self.out_name))
         if not self.out_log:
-            self.out_log = os.path.join(self.out_files_dir, 
+            self.out_log = os.path.join(self.out_dir, 
                                         '{}.log'.format(self.out_name))
         if self.no_logging:
             self.out_log = os.devnull
@@ -413,7 +419,10 @@ class BG (object):
         '''Create images for each label to be placed alongside the button 
         images.
         '''
-        has_labels = [i for i in self.menu_labels if i]
+        if self.menu_labels:
+            has_labels = [i for i in self.menu_labels if i]
+        else:
+            has_labels = False
         if not has_labels:
             self.menu_labels = None
         if not self.menu_labels or not self.label_line_height > 0:
@@ -563,4 +572,34 @@ class BG (object):
         if self.menu_ar == 16/9:
             self.highlight_lb_img.write(out_file=out_file_hl_lb)
             self.select_lb_img.write(out_file=out_file_sl_lb)
+    
+    def get_xml(self):
+        self.create_menu_xml(self.path_hl_img, 
+                             self.path_sl_img, 
+                             self.path_menu_xml,
+                             mode='normal')
+        if self.menu_ar == 16/9:
+            self.create_menu_xml(self.path_hl_lb_img, 
+                                 self.path_sl_lb_img, 
+                                 self.path_menu_lb_xml,
+                                 mode='letterboxed')
+            
 
+    def create_menu_xml(self, hl, sl, xml, mode='normal'):
+        if not self.no_logging:
+            utils.log_items(heading=('Writing spumux xml config '
+                                     'for menu buttons ({})...'.format(mode)), 
+                            items=False, lines_before=1, sep='', sep_post='-',
+                            logger=self.logger)
+        subpictures = etree.Element('subpictures')
+        stream = etree.SubElement(subpictures, 'stream')
+        spu = etree.SubElement(stream, 'spu')
+        spu.set('start', '00:00:00.00')
+        #~ spu.set('end', '00:01:30.00')
+        spu.set('force', 'yes')
+        spu.set('highlight', hl)
+        spu.set('select', sl)
+        spu.set('autooutline', 'infer')
+        spu.set('autoorder', 'rows')
+        tree = etree.ElementTree(subpictures)
+        tree.write(xml, encoding='UTF-8', pretty_print=True)
