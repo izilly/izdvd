@@ -110,54 +110,56 @@ def get_space_available(path):
 
 def log_items(items=None, heading=None, logger=None, lvl=logging.INFO, 
               sep='=', sep_length=78, max_width=78, s_indent=4, indent=0, 
-              col_width=12, lines_before=0, lines_after=0, 
+              col_width=12, lines_before=1, lines_after=0, 
               sep_pre=None, sep_post=None):
     if logger is None:
         logger = logging.getLogger(config.PROG_NAME)
     for l in range(lines_before):
         logger.log(lvl, '')
     if heading:
-        logger.log(lvl, sep*sep_length)
+        if sep:
+            logger.log(lvl, sep*sep_length)
         logger.log(lvl, heading)
-        logger.log(lvl, sep*sep_length)
+        if sep:
+            logger.log(lvl, sep*sep_length)
     if sep_pre:
         logger.log(lvl, sep_pre*sep_length)
         
-    if items is False:
-        return
-    if items is None:
-        items = ['<none>']
-    if isinstance(items, numbers.Number):
-        items = str(items)
-    if type(items) == str:
-        items = [items]
-    for i in items:
-        if i is None:
-            i = ''
-        if type(i) == tuple:
-            lines = []
-            item = i[0]
-            val = i[1] if i[1] is not None else '<none>'
-            if isinstance(val, numbers.Number):
-                val = str(val)
-            if type(val) == str:
-                val = [val]
-            for n,v in enumerate(val):
-                if n == 0:
-                    c1 = item+' : '
-                    sep = ': '
-                else:
-                    c1 = ''
-                    sep = '  '
-                msg = '{c1:>{width}}{c2}'.format(c1=c1, c2=v,
-                                                width=col_width+3)
-                lines.append(msg)
-        else:
-            lines = [i]
-        for l in lines:
-            if indent:
-                l = textwrap.indent(l, ' '*indent)
-            logger.log(lvl, l)
+    if items is not False:
+        #~ return
+        if items is None:
+            items = ['<none>']
+        if isinstance(items, numbers.Number):
+            items = str(items)
+        if type(items) == str:
+            items = [items]
+        for i in items:
+            if i is None:
+                i = ''
+            if type(i) == tuple:
+                lines = []
+                item = i[0]
+                val = i[1] if i[1] is not None else '<none>'
+                if isinstance(val, numbers.Number):
+                    val = str(val)
+                if type(val) == str:
+                    val = [val]
+                for n,v in enumerate(val):
+                    if n == 0:
+                        c1 = item+' : '
+                        sep = ': '
+                    else:
+                        c1 = ''
+                        sep = '  '
+                    msg = '{c1:>{width}}{c2}'.format(c1=c1, c2=v,
+                                                    width=col_width+3)
+                    lines.append(msg)
+            else:
+                lines = [i]
+            for l in lines:
+                if indent:
+                    l = textwrap.indent(l, ' '*indent)
+                logger.log(lvl, l)
     if sep_post:
         logger.log(lvl, sep_post*sep_length)
     for l in range(lines_after):

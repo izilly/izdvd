@@ -75,7 +75,8 @@ class DVD (object):
                  outer_padding=None,
                  inner_padding=None,
                  menu_audio=None,
-                 no_loop_menu=True):
+                 no_loop_menu=True,
+                 mode='dvd'):
         self.uid = str(id(self))
         # input 
         self.in_vids=in_vids 
@@ -132,6 +133,7 @@ class DVD (object):
         self.inner_padding = inner_padding
         self.menu_audio = menu_audio
         self.no_loop_menu=no_loop_menu
+        self.mode = mode
         #-------------------------------
         if self.menu_ar is None:
             self.menu_ar = self.dvd_ar
@@ -152,7 +154,7 @@ class DVD (object):
             self.get_menu()
         if self.menu_only:
             return
-        self.log_menu_info()
+        #~ self.log_menu_info()
         self.prompt_menu()
         # prepare mpeg2 files
         self.encode_video()
@@ -428,7 +430,7 @@ class DVD (object):
             utils.log_items('#{}: {}:'.format(n+1, i['vid_label']), 
                             lines_before=0, sep_pre='-', sep_post='-', 
                             logger=self.logger)
-            utils.log_items(log_data, col_width=12, indent=4, 
+            utils.log_items(log_data, col_width=12, indent=4, lines_before=0,
                             logger=self.logger)
     
     def log_titlesets(self):
@@ -446,7 +448,7 @@ class DVD (object):
             utils.log_items('Titleset #{} of {}'.format(n+1, len(self.titlesets)),
                             lines_before=0, sep_pre='-', sep_post='-', 
                             logger=self.logger)
-            utils.log_items(log_data, col_width=12, indent=4, 
+            utils.log_items(log_data, col_width=12, indent=4, lines_before=0,
                             logger=self.logger)
     
     def log_menu_info(self):
@@ -477,7 +479,9 @@ class DVD (object):
             # TODO: offer choice of files when video is stacked
             path = self.vids[path]['in'][0]
             if resp == 1:
-                o = subprocess.check_call([config.VIDEO_PLAYER, path])
+                o = subprocess.check_call([config.VIDEO_PLAYER, path],
+                                          stderr=subprocess.STDOUT,
+                                          stdout=subprocess.DEVNULL)
             elif resp == 2:
                 o = subprocess.check_output(['ls', '-lhaF', '--color=auto', 
                                              os.path.dirname(path)],
@@ -501,7 +505,9 @@ class DVD (object):
                                            self.menu.bg.path_bg_img])
             elif resp == 2:
                 o = subprocess.check_call([config.VIDEO_PLAYER, 
-                                           self.menu.path_menu_mpg])
+                                           self.menu.path_menu_mpg],
+                                          stderr=subprocess.STDOUT,
+                                          stdout=subprocess.DEVNULL)
     
     def get_duration_string(self, seconds):
         h,m,s = str(timedelta(seconds=seconds)).split(':')
@@ -574,7 +580,7 @@ class DVD (object):
     
     def get_menu(self):
         utils.log_items(heading='Making DVD Menu...', items=False, 
-                        logger=self.logger)
+                        sep=None, sep_post='-', logger=self.logger)
         if not self.with_menu_labels:
             self.menu_label_line_height = 0
         menu_args = {}
@@ -596,6 +602,8 @@ class DVD (object):
                             tmp_dir=self.tmp_dir,
                             menu_ar=self.menu_ar,
                             dvd_format=self.dvd_format,
+                            out_log=self.out_log,
+                            mode=self.mode,
                             **menu_args)
 
         self.blank_menu = DVDMenu(menu_imgs=None,
@@ -603,7 +611,10 @@ class DVD (object):
                                   out_name='blank_menu',
                                   tmp_dir=self.tmp_dir,
                                   menu_ar=self.menu_ar,
-                                  dvd_format=self.dvd_format)
+                                  dvd_format=self.dvd_format,
+                                  frames=1,
+                                  mode=self.mode,
+                                  no_logging=True)
     
     def encode_video(self):
         # TODO: self.vids[n]['in'] is now a list of paths 

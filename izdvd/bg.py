@@ -12,6 +12,7 @@ from izdvd import config
 import math
 from collections import Counter
 import os
+import logging
 
 
 class BG (object):
@@ -24,6 +25,7 @@ class BG (object):
                  out_name=None,
                  out_dir=None,
                  tmp_dir=None,
+                 out_log=None,
                  # ---------------bg opts --------------------
                  # padding
                  outer_padding=30, 
@@ -46,7 +48,9 @@ class BG (object):
                  shadow_y_offset=5,
                  # labels
                  label_line_height=0, 
-                 label_lines=2
+                 label_lines=2,
+                 mode='bg',
+                 no_logging=False,
                  ):
         # input paths
         self.menu_bg = menu_bg
@@ -56,6 +60,7 @@ class BG (object):
         self.out_name = out_name
         self.out_dir = out_dir
         self.tmp_dir = tmp_dir
+        self.out_log = out_log
         # padding
         self.label_padding = label_padding
         self.outer_padding = outer_padding
@@ -81,6 +86,8 @@ class BG (object):
         # labels
         self.label_line_height = label_line_height
         self.label_lines = label_lines
+        self.mode = mode
+        self.no_logging = no_logging
         #---------
         self.get_out_paths()
         self.get_imgs()
@@ -115,6 +122,21 @@ class BG (object):
                                            '{}_hl_lb.png'.format(out_name))
         self.path_sl_lb_img = os.path.join(fdir, 
                                            '{}_sl_lb.png'.format(out_name))
+        if not self.out_log:
+            self.out_log = os.path.join(self.out_files_dir, 
+                                        '{}.log'.format(self.out_name))
+        if self.no_logging:
+            self.out_log = os.devnull
+        self.logger = logging.getLogger('{}.bg'.format(config.PROG_NAME))
+        self.logger.addHandler(logging.FileHandler(self.out_log))
+        self.logger.setLevel(logging.INFO)
+    
+    def log_output_info(self):
+        if self.mode == 'bg' and not self.no_logging:
+            logs = list(zip(['Name', 'Out Dir', 'Files', 'tmp'],
+                            [self.out_name, self.out_dir, self.out_files_dir, 
+                             self.tmp_dir]))
+            utils.log_items(logs, 'Output Paths', logger=self.logger)
     
     def get_imgs(self):
         if self.menu_imgs:
@@ -150,6 +172,10 @@ class BG (object):
     
     def make_bg(self):
         if self.bg_img is None:
+            if not self.no_logging:
+                utils.log_items(heading='Making menu background canvas...', 
+                                items=False, lines_before=1, sep='', 
+                                sep_post='-', logger=self.logger)
             if self.menu_bg is not None:
                 try:
                     self.bg_img = CanvasImg(width=self.display_width,
@@ -172,6 +198,10 @@ class BG (object):
         else:
             new_height = None
         if new_width or new_height:
+            if not self.no_logging:
+                utils.log_items(heading='Resizing menu background...', 
+                                items=False, lines_before=1, sep='', sep_post='-',
+                                logger=self.logger)
             self.bg_img.resize(width=new_width, height=new_height,
                                ignore_aspect=True)
     
@@ -214,6 +244,11 @@ class BG (object):
             buttons*gr = cols^2
             sqrt(buttons*gr) = cols
         '''
+        if not self.no_logging:
+            utils.log_items(heading=('Calculating the best grid '
+                                     'for menu buttons...'),
+                            items=False, lines_before=1, sep='', sep_post='-',
+                            logger=self.logger)
         bg_w = self.display_width - self.outer_padding*2
         bg_h = self.display_height - self.outer_padding*2
         bg_ar = bg_w / bg_h
@@ -330,6 +365,10 @@ class BG (object):
         Returns:    None
                         (modifies self.button_imgs)
         '''
+        if not self.no_logging:
+            utils.log_items(heading='Resizing menu button images...', 
+                            items=False, lines_before=1, sep='', sep_post='-',
+                            logger=self.logger)
         for i in self.button_imgs:
             if i.ar > self.cell_ar:
                 w = self.cell_w
@@ -382,6 +421,10 @@ class BG (object):
             self.label_height = 0
             self.label_padding = 0
             return False
+        if not self.no_logging:
+            utils.log_items(heading='Making menu label images...', 
+                            items=False, lines_before=1, sep='', sep_post='-',
+                            logger=self.logger)
         button_w = max([i.get_width() for i in self.button_imgs])
         labels = []
         for i in self.menu_labels:

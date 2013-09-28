@@ -479,8 +479,10 @@ class TextImg(Img):
                                       use_undercolor=True,
                                       clear_inner_stroke=False)
         cmd_w += ['-trim', 'info:']
-        out_h = subprocess.check_output(cmd_h, universal_newlines=True)
-        out_w = subprocess.check_output(cmd_w, universal_newlines=True)
+        out_h = subprocess.check_output(cmd_h, universal_newlines=True,
+                                        stderr=subprocess.DEVNULL)
+        out_w = subprocess.check_output(cmd_w, universal_newlines=True,
+                                        stderr=subprocess.DEVNULL)
         z,h,z,y = out_h.split(';')
         w,z,x,z = out_w.split(';')
         return (int(w), int(h), int(x), int(y))

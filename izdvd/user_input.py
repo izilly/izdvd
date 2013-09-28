@@ -16,10 +16,15 @@ def prompt_user_list(choices, prompt=None,
                      header='User input required', 
                      default=0, info=None,
                      include_quit=True, quit_def=('q', 'quit'), 
-                     lines_before=1, choices_sep='-', sep_length=78):
+                     lines_before=1, 
+                     header_sep='>', choices_sep='-', sep_length=78):
     print('\n'*lines_before)
     if header:
+        if header_sep:
+            print(header_sep*sep_length)
         print('{}:'.format(header))
+        if header_sep:
+            print(header_sep*sep_length)
     if prompt is None:
         prompt = 'Select from the choices above [{}]: '.format(default)
     idx_width = len(str(len(choices)))
@@ -27,8 +32,8 @@ def prompt_user_list(choices, prompt=None,
                          for n,i in enumerate(choices)])
     if include_quit:
         choices = '\n'.join([choices, '{}) {}'.format(*quit_def)])
-    if choices_sep:
-        print(choices_sep*sep_length)
+    #~ if choices_sep:
+        #~ print(choices_sep*sep_length)
     print(choices)
     if choices_sep:
         print(choices_sep*sep_length)
