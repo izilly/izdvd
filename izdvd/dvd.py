@@ -20,70 +20,6 @@ from lxml import etree
 import glob
 import re
 import logging
-import numbers
-import textwrap
-
-
-logger = logging.getLogger()
-logger.addHandler(logging.StreamHandler())
-logger.setLevel(logging.INFO)
-
-def log_items(items=None, heading=None, lvl=logging.INFO, 
-              sep='=', sep_length=78, max_width=78, s_indent=4, indent=0, 
-              col_width=12, lines_before=0, lines_after=0, 
-              sep_pre=None, sep_post=None):
-    for l in range(lines_before):
-        logger.log(lvl, '')
-    if heading:
-        logger.log(lvl, sep*sep_length)
-        logger.log(lvl, heading)
-        logger.log(lvl, sep*sep_length)
-    if sep_pre:
-        logger.log(lvl, sep_pre*sep_length)
-        
-    if items is False:
-        return
-    if items is None:
-        items = ['<none>']
-    if isinstance(items, numbers.Number):
-        items = str(items)
-    if type(items) == str:
-        items = [items]
-    for i in items:
-        if i is None:
-            i = ''
-        if type(i) == tuple:
-            lines = []
-            item = i[0]
-            val = i[1] if i[1] is not None else '<none>'
-            if isinstance(val, numbers.Number):
-                val = str(val)
-            if type(val) == str:
-                val = [val]
-            for n,v in enumerate(val):
-                if n == 0:
-                    c1 = item+' : '
-                    sep = ': '
-                else:
-                    c1 = ''
-                    sep = '  '
-                msg = '{c1:>{width}}{c2}'.format(c1=c1, c2=v,
-                                                width=col_width+3)
-                lines.append(msg)
-        else:
-            lines = [i]
-        for l in lines:
-            if indent:
-                l = textwrap.indent(l, ' '*indent)
-            logger.log(lvl, l)
-    if sep_post:
-        logger.log(lvl, sep_post*sep_length)
-    for l in range(lines_after):
-        logger.log(lvl, '')
-
-def get_space_available(path):
-    s = os.statvfs(path)
-    return s.f_frsize * s.f_bavail
 
 
 class DVD (object):
@@ -250,11 +186,13 @@ class DVD (object):
             if devices.get(dev):
                 devices[dev] -= s
             else:
-                devices[dev] = get_space_available(i) - s
+                devices[dev] = utils.get_space_available(i) - s
         if min(devices.values()) < 1024*1024:
             raise
         
-        logger.addHandler(logging.FileHandler(self.out_log))
+        self.logger = logging.getLogger('{}.dvd'.format(config.PROG_NAME))
+        self.logger.addHandler(logging.FileHandler(self.out_log))
+        self.logger.setLevel(logging.INFO)
     
     def get_in_vids(self):
         if not self.in_vids:
@@ -443,10 +381,11 @@ class DVD (object):
         logs = list(zip(['Name', 'DVD', 'Files', 'tmp'],
                         [self.out_name, self.out_dvd_dir, self.out_files_dir, 
                          self.tmp_dir]))
-        log_items(logs, 'Output Paths')
+        utils.log_items(logs, 'Output Paths', logger=self.logger)
 
     def log_input_info(self):
-        log_items(heading='Video Information', items=[], lines_before=1)
+        utils.log_items(heading='Video Information', items=[], lines_before=1,
+                        logger=self.logger)
         for n,i in enumerate(self.vids):
             #~ dirs = [i['in'], i['img'], i['srt']]
             dirs = [p for p in i['in']]
@@ -486,12 +425,15 @@ class DVD (object):
                              '{:.2f}'.format(i['ar']), duration]))
             if in_dir:
                 log_data.append(('In Dir', in_dir))
-            log_items('#{}: {}:'.format(n+1, i['vid_label']), lines_before=0,
-                      sep_pre='-', sep_post='-')
-            log_items(log_data, col_width=12, indent=4)# sep_post='-')
+            utils.log_items('#{}: {}:'.format(n+1, i['vid_label']), 
+                            lines_before=0, sep_pre='-', sep_post='-', 
+                            logger=self.logger)
+            utils.log_items(log_data, col_width=12, indent=4, 
+                            logger=self.logger)
     
     def log_titlesets(self):
-        log_items(heading='Titlesets', items=[], lines_before=1)
+        utils.log_items(heading='Titlesets', items=[], lines_before=1,
+                        logger=self.logger)
         for n,i in enumerate(self.titlesets):
             ar = i['ar']
             seconds = sum([d['duration'] for d in i['vids']])
@@ -501,9 +443,11 @@ class DVD (object):
                                  '{} of {}'.format(len(i['vids']),
                                                    len(self.vids))]))
             log_data.append(('Videos', [v['vid_label'] for v in i['vids']]))
-            log_items('Titleset #{} of {}'.format(n+1, len(self.titlesets)),
-                      lines_before=0, sep_pre='-', sep_post='-')
-            log_items(log_data, col_width=12, indent=4)
+            utils.log_items('Titleset #{} of {}'.format(n+1, len(self.titlesets)),
+                            lines_before=0, sep_pre='-', sep_post='-', 
+                            logger=self.logger)
+            utils.log_items(log_data, col_width=12, indent=4, 
+                            logger=self.logger)
     
     def log_menu_info(self):
         if self.menu_ar == 16/9:
@@ -513,7 +457,8 @@ class DVD (object):
         log_data = list(zip(['Aspect Ratio', 'Image', 'Video'],
                             [ar, self.menu.bg.path_bg_img, 
                              self.menu.path_menu_mpg]))
-        log_items(heading='Menu', items=log_data, lines_before=1)
+        utils.log_items(heading='Menu', items=log_data, lines_before=1,
+                        logger=self.logger)
     
     def prompt_input_output(self):
         if self.no_prompt:
@@ -619,7 +564,7 @@ class DVD (object):
                          '{:.1f} kbps'.format(total_bitrate / 1024),
                          '{:.1f} kbps'.format(self.vbitrate / 1024),
                          '{:.1f} kbps'.format(self.abitrate / 1024),]))
-        log_items(logs, 'DVD Info')
+        utils.log_items(logs, 'DVD Info', logger=self.logger)
     
     def get_audio_bitrate(self):
         return self.abitrate
@@ -628,7 +573,8 @@ class DVD (object):
         pass
     
     def get_menu(self):
-        log_items(heading='Making DVD Menu...', items=False)
+        utils.log_items(heading='Making DVD Menu...', items=False, 
+                        logger=self.logger)
         if not self.with_menu_labels:
             self.menu_label_line_height = 0
         menu_args = {}
@@ -662,11 +608,13 @@ class DVD (object):
     def encode_video(self):
         # TODO: self.vids[n]['in'] is now a list of paths 
         if self.no_encode_v:
-            log_items('Skipping encoding mpeg2 video...')
+            utils.log_items('Skipping encoding mpeg2 video...', 
+                            logger=self.logger)
             for i in self.vids:
                 i['mpeg'] = i['in'][0]
             return
-        log_items(heading='Encoding mpeg2 video...', items=False)
+        utils.log_items(heading='Encoding mpeg2 video...', items=False,
+                        logger=self.logger)
         if self.dvd_ar == 16/9:
             aspect = '16:9'
         else:
@@ -687,7 +635,8 @@ class DVD (object):
                 v['mpeg'] = mpeg
     
     def create_dvd_xml(self):
-        log_items(heading='Making dvdauthor xml...', items=False)
+        utils.log_items(heading='Making dvdauthor xml...', items=False,
+                        logger=self.logger)
         if self.dvd_format == 'PAL':
             fmt = 'pal'
         else:
@@ -783,7 +732,8 @@ class DVD (object):
         return groups
     
     def author_dvd(self):
-        log_items(heading='Writing DVD to disc...', items=False)
+        utils.log_items(heading='Writing DVD to disc...', items=False,
+                        logger=self.logger)
         e = dict(os.environ)
         e['VIDEO_FORMAT'] = self.dvd_format
         cmd = ['dvdauthor', '-x', self.out_dvd_xml, '-o', self.out_dvd_dir]

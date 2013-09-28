@@ -9,12 +9,17 @@ from izdvd.bg import BG
 from izdvd.dvdmenu import DVDMenu
 from izdvd.dvd import DVD
 from izdvd.utils import HelpFormatter
+from izdvd import config
 import re
 import os
 import os.path
 import argparse
 import sys
+import logging
 
+LOGGER = logging.getLogger(config.PROG_NAME)
+LOGGER.addHandler(logging.StreamHandler())
+LOGGER.setLevel(logging.INFO)
 
 def get_options(mode='dvd'):
     desc = {}
@@ -53,7 +58,6 @@ def get_options(mode='dvd'):
 
     return options
 
-    
 def add_in_paths_opts(parser, mode='dvd'):
     desc = {}
     desc['dvd'] = '''Input video files can be given either with --in-dirs 
