@@ -107,12 +107,12 @@ class DVDMenu (object):
         self.out_files_dir = os.path.join(self.out_dir, 'files')
         fdir = self.out_files_dir
         out_name = self.out_name
-        self.path_menu_lb_mpg = os.path.join(fdir, 
-                                             '{}_menu_lb.mpg'.format(out_name))        
         self.path_bg_m2v = os.path.join(fdir, '{}_bg.m2v'.format(out_name))
         self.path_bg_ac3 = os.path.join(fdir, '{}_bg.ac3'.format(out_name))
         self.path_bg_mpg = os.path.join(fdir, '{}_bg.mpg'.format(out_name))
         self.path_menu_mpg = os.path.join(fdir, '{}_menu.mpg'.format(out_name))
+        self.path_menu_lb_mpg = os.path.join(fdir, 
+                                             '{}_menu_lb.mpg'.format(out_name))        
         self.path_menu_xml = os.path.join(fdir, '{}_menu.xml'.format(out_name))
         self.path_menu_lb_xml = os.path.join(fdir, 
                                              '{}_menu_lb.xml'.format(out_name))
@@ -286,7 +286,9 @@ class DVDMenu (object):
                                    self.path_menu_lb_xml, 
                                    '1',
                                    mode='letterboxed')
-            self.path_menu_mpg = self.path_menu_lb_mpg
+            os.remove(self.path_menu_mpg)
+            os.rename(self.path_menu_lb_mpg, self.path_menu_mpg)
+            #~ self.path_menu_mpg = self.path_menu_lb_mpg
             
 
     def create_menu_xml(self, hl, sl, xml, mode='normal'):
