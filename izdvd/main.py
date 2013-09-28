@@ -397,7 +397,7 @@ def make_dvd(options):
               label_padding = options.label_padding,
               outer_padding = options.outer_padding,
               inner_padding = options.inner_padding,
-              no_loop_menu=True)
+              no_loop_menu=options.no_loop_menu)
 
 def make_menu(options):
     menu = DVDMenu(**vars(options))
