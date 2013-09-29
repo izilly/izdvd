@@ -66,73 +66,98 @@ class DVD (object):
                  separate_titles=True, 
                  separate_titlesets=False, 
                  ar_threshold=1.38,
-                 # menu options
-                 menu_ar=None,
-                 with_menu_labels=False, 
-                 label_line_height=None,
-                 label_lines=None,
-                 label_padding=None,
-                 outer_padding=None,
+                 # ------bg opts------
+                 # padding
+                 outer_padding=None, 
                  inner_padding=None,
+                 label_padding=None, 
+                 # size/shape 
+                 menu_ar=16/9,
+                 # buttons
+                 button_border_color=None, 
+                 button_border_thickness=None, 
+                 button_highlight_color=None, 
+                 button_highlight_thickness=None,
+                 button_select_color=None,
+                 shadow_sigma=None, 
+                 shadow_x_offset=None, 
+                 shadow_y_offset=None,
+                 # labels
+                 with_menu_labels=False, 
+                 label_line_height=None, 
+                 label_lines=None,
+                 # ------menu opts------
                  menu_audio=None,
-                 no_loop_menu=True,
+                 no_loop_menu=False,
+                 frames=360,
                  mode='dvd'):
         self.uid = str(id(self))
-        # input 
-        self.in_vids=in_vids 
-        self.in_dirs=in_dirs 
-        self.in_srts=in_srts 
-        self.menu_imgs=menu_imgs 
-        self.menu_labels=menu_labels 
-        self.menu_bg=menu_bg 
+        # input
+        self.in_vids = in_vids
+        self.in_dirs = in_dirs
+        self.in_srts = in_srts
+        self.menu_imgs = menu_imgs
+        self.menu_labels = menu_labels
+        self.menu_bg = menu_bg
         # input options
-        self.vid_fmts=vid_fmts
-        self.img_fmts=img_fmts
-        self.sub_fmts=sub_fmts
-        self.img_names = img_names
-        self.one_vid_per_dir=one_vid_per_dir
-        self.label_from_img=label_from_img
-        self.label_from_dir=label_from_dir 
-        self.strip_label_year=strip_label_year
-        self.no_encode_v=no_encode_v 
-        self.no_encode_a=no_encode_a 
-        self.unstack_vids=unstack_vids
+        self.vid_fmts = vid_fmts
+        self.img_fmts = img_fmts
+        self.sub_fmts = sub_fmts
+        self.img_names  = img_names
+        self.one_vid_per_dir = one_vid_per_dir
+        self.label_from_img = label_from_img
+        self.label_from_dir = label_from_dir
+        self.strip_label_year = strip_label_year
+        self.no_encode_v = no_encode_v
+        self.no_encode_a = no_encode_a
+        self.unstack_vids = unstack_vids
         # output locations
-        self.out_name=out_name 
-        self.out_dir=out_dir
-        self.tmp_dir=tmp_dir
+        self.out_name = out_name
+        self.out_dir = out_dir
+        self.tmp_dir = tmp_dir
         # output options
-        self.no_prompt=no_prompt
-        self.with_menu=with_menu 
-        self.menu_only=menu_only
-        self.with_author_dvd=with_author_dvd
-        self.dvd_size_bytes=dvd_size_bytes
-        self.dvd_size_bits = dvd_size_bytes * 8
+        self.no_prompt = no_prompt
+        self.with_menu = with_menu
+        self.menu_only = menu_only
+        self.with_author_dvd = with_author_dvd
+        self.dvd_size_bytes = dvd_size_bytes
+        self.dvd_size_bits  = dvd_size_bytes * 8
         # dvd options
-        self.audio_lang=audio_lang
-        self.with_subs=with_subs 
-        self.sub_lang=sub_lang 
-        self.dvd_format=dvd_format 
-        self.dvd_ar=dvd_ar 
-        self.vbitrate=vbitrate 
-        self.abitrate=abitrate 
-        self.two_pass=two_pass
-        self.separate_titles=separate_titles 
-        self.separate_titlesets=separate_titlesets 
-        self.ar_threshold=ar_threshold
+        self.audio_lang = audio_lang
+        self.with_subs = with_subs
+        self.sub_lang = sub_lang
+        self.dvd_format = dvd_format
+        self.dvd_ar = dvd_ar
+        self.vbitrate = vbitrate
+        self.abitrate = abitrate
+        self.two_pass = two_pass
+        self.separate_titles = separate_titles
+        self.separate_titlesets = separate_titlesets
+        self.ar_threshold = ar_threshold
         # menu options
         if type(menu_ar) == str:
             ar_w, ar_h = menu_ar.split(':')
             menu_ar = int(ar_w) / int(ar_h)
         self.menu_ar=menu_ar
-        self.with_menu_labels=with_menu_labels 
-        self.label_line_height=label_line_height
-        self.label_lines = label_lines
-        self.label_padding = label_padding
+        
         self.outer_padding = outer_padding
         self.inner_padding = inner_padding
+        self.label_padding = label_padding
+        self.button_border_color = button_border_color
+        self.button_border_thickness = button_border_thickness
+        self.button_highlight_color = button_highlight_color
+        self.button_highlight_thickness = button_highlight_thickness
+        self.button_select_color = button_select_color
+        self.shadow_sigma = shadow_sigma
+        self.shadow_x_offset = shadow_x_offset
+        self.shadow_y_offset = shadow_y_offset
+        
+        self.with_menu_labels = with_menu_labels
+        self.label_line_height = label_line_height
+        self.label_lines = label_lines
         self.menu_audio = menu_audio
-        self.no_loop_menu=no_loop_menu
+        self.no_loop_menu = no_loop_menu
+        self.frames = frames
         self.mode = mode
         #-------------------------------
         if self.menu_ar is None:
@@ -583,13 +608,28 @@ class DVD (object):
                         logger=self.logger)
         if not self.with_menu_labels:
             self.menu_label_line_height = 0
+            self.menu_labels = None
         menu_args = {}
-        menu_attrs = ['label_line_height',
-                      'label_lines',
-                      'label_padding',
+        menu_attrs = [
+                      'out_name',
+                      'tmp_dir',
                       'outer_padding',
                       'inner_padding',
-                      'menu_audio']
+                      'label_padding',
+                      'menu_ar',
+                      'button_border_color',
+                      'button_border_thickness',
+                      'button_highlight_color',
+                      'button_highlight_thickness',
+                      'button_select_color',
+                      'shadow_sigma',
+                      'shadow_x_offset',
+                      'shadow_y_offset',
+                      'label_line_height',
+                      'label_lines',
+                      'menu_audio',
+                      'frames',
+                      'mode']
         for k in menu_attrs:
             v = getattr(self, k)
             if v is not None:
@@ -598,12 +638,8 @@ class DVD (object):
                             menu_bg=self.menu_bg,
                             menu_labels=self.menu_labels, 
                             out_dir=self.out_files_dir,
-                            out_name=self.out_name,
-                            tmp_dir=self.tmp_dir,
-                            menu_ar=self.menu_ar,
                             dvd_format=self.dvd_format,
                             out_log=self.out_log,
-                            mode=self.mode,
                             **menu_args)
 
         self.blank_menu = DVDMenu(menu_imgs=None,

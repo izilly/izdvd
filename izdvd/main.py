@@ -351,61 +351,7 @@ def add_out_paths_opts(parser, mode='dvd'):
 # ----------------------------------------------------------------------------
 
 def make_dvd(options):
-
-    dvd = DVD(
-              # input 
-              in_vids=options.in_vids,
-              in_dirs=options.in_dirs, 
-              in_srts=options.in_srts, 
-              menu_imgs=options.menu_imgs, 
-              menu_labels=options.menu_labels, 
-              menu_bg=options.menu_bg, 
-              # input options
-              vid_fmts=options.vid_fmts,
-              img_fmts=options.img_fmts,
-              #~ sub_fmts=options.sub_fmts,
-              img_names=options.img_names,
-              one_vid_per_dir=options.one_vid_per_dir,
-              label_from_img=options.label_from_img,
-              label_from_dir=options.label_from_dir, 
-              strip_label_year=options.strip_label_year,
-              no_encode_v=options.no_encode_v, 
-              #~ no_encode_a=options.no_encode_a, 
-              unstack_vids=options.unstack_vids,
-              # output locations
-              out_name=options.out_name, 
-              out_dir=options.out_dir, 
-              tmp_dir=options.tmp_dir,
-              # output options
-              no_prompt=options.no_prompt,
-              with_menu=options.with_menu, 
-              #~ menu_only=options.menu_only,
-              with_author_dvd=options.with_author_dvd,
-              #~ dvd_size_bits=options.#~ dvd_size_bits,
-              dvd_size_bytes=options.dvd_size_bytes,
-              # dvd options
-              audio_lang=options.audio_lang,
-              # TODO: change with_subs default to None and let DVD() add them
-              # if any present or given on command line
-              with_subs=options.with_subs, 
-              sub_lang=options.sub_lang, 
-              dvd_format=options.dvd_format, 
-              dvd_ar=options.dvd_ar, 
-              vbitrate=options.vbitrate, 
-              abitrate=options.abitrate, 
-              two_pass=options.two_pass,
-              separate_titles=options.separate_titles, 
-              separate_titlesets=options.separate_titlesets, 
-              #~ ar_threshold=options.ar_threshold,
-              # menu options
-              menu_ar=options.menu_ar,
-              with_menu_labels=options.with_menu_labels, 
-              label_line_height=options.label_line_height,
-              label_lines = options.label_lines,
-              label_padding = options.label_padding,
-              outer_padding = options.outer_padding,
-              inner_padding = options.inner_padding,
-              no_loop_menu=options.no_loop_menu)
+    dvd = DVD(**vars(options))
 
 def make_menu(options):
     menu = DVDMenu(**vars(options))
