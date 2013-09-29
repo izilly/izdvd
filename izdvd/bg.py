@@ -115,19 +115,19 @@ class BG (object):
         self.out_name, self.out_dir, self.tmp_dir = paths
         
         self.path_bg_img = os.path.join(self.out_dir, 
-                                        '{}_bg.png'.format(self.out_name))
+                                        '{}_background.png'.format(self.out_name))
         self.path_hl_img = os.path.join(self.out_dir, 
-                                        '{}_hl.png'.format(self.out_name))
+                                        '{}_highlight.png'.format(self.out_name))
         self.path_sl_img = os.path.join(self.out_dir, 
-                                        '{}_sl.png'.format(self.out_name))
+                                        '{}_select.png'.format(self.out_name))
         self.path_hl_lb_img = os.path.join(self.out_dir, 
-                                  '{}_hl_letterboxed.png'.format(self.out_name))
+                                  '{}_highlight_letterbox.png'.format(self.out_name))
         self.path_sl_lb_img = os.path.join(self.out_dir, 
-                                  '{}_sl_letterboxed.png'.format(self.out_name))
+                                  '{}_select_letterbox.png'.format(self.out_name))
         self.path_menu_xml = os.path.join(self.out_dir, 
                                           '{}_menu.xml'.format(self.out_name))
         self.path_menu_lb_xml = os.path.join(self.out_dir, 
-                                '{}_menu_letterboxed.xml'.format(self.out_name))
+                                '{}_menu_letterbox.xml'.format(self.out_name))
         if not self.out_log:
             self.out_log = os.path.join(self.out_dir, 
                                         '{}.log'.format(self.out_name))

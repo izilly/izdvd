@@ -110,13 +110,13 @@ class DVDMenu (object):
         self.path_menu_mpg = os.path.join(self.out_dir, 
                                           '{}_menu.mpg'.format(self.out_name))
         self.path_bg_m2v = os.path.join(self.out_files_dir, 
-                                        '{}_bg.m2v'.format(self.out_name))
+                                      '{}_menu_video.m2v'.format(self.out_name))
         self.path_bg_ac3 = os.path.join(self.out_files_dir, 
-                                        '{}_bg.ac3'.format(self.out_name))
+                                      '{}_menu_audio.ac3'.format(self.out_name))
         self.path_bg_mpg = os.path.join(self.out_files_dir, 
-                                        '{}_bg.mpg'.format(self.out_name))
+                                 '{}_menu_mplexed.mpg'.format(self.out_name))
         self.path_menu_lb_mpg = os.path.join(self.out_files_dir, 
-                                        '{}_menu_lb.mpg'.format(self.out_name))        
+                                  '{}_menu_letterbox.mpg'.format(self.out_name))        
         #~ self.path_menu_xml = os.path.join(self.out_files_dir, 
                                           #~ '{}_menu.xml'.format(self.out_name))
         #~ self.path_menu_lb_xml = os.path.join(self.out_files_dir, 

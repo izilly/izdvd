@@ -608,7 +608,7 @@ class DVD (object):
 
         self.blank_menu = DVDMenu(menu_imgs=None,
                                   out_dir=self.out_files_dir,
-                                  out_name='blank_menu',
+                                  out_name='blank',
                                   tmp_dir=self.tmp_dir,
                                   menu_ar=self.menu_ar,
                                   dvd_format=self.dvd_format,
