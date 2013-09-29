@@ -75,7 +75,7 @@ def get_out_paths(prog_name, out_name, out_dir, tmp_dir, tmp_required_space):
         if not os.path.exists(i):
             os.makedirs(i)
     
-    return out_name, out_dir, tmp_dir
+    return out_name, os.path.abspath(out_dir), os.path.abspath(tmp_dir)
 
 def get_dvd_dims(ar, dvd_format):
     storage_width = 720
