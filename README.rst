@@ -23,12 +23,24 @@ Three scripts are included:
         can be explicitly specified on the command line.
     
     **izdvdmenu**
-        Outputs a DVD menu (a set of video and xml files that can be used to 
-        create a DVD with dvdauthor)
+        Outputs a DVD menu: an mpeg2 video file multiplexed with subtitles 
+        (buttons), suitable for use with dvdauthor or other dvd authoring
+        software.
     
     **izdvdbg**
-        Outputs a set of image and xml files that can be used to create a DVD 
-        menu with spumux (part of the dvdauthor package)
+        Outputs a DVD menu background: a set of image and xml files that can be 
+        used to create a DVD menu with spumux (part of the dvdauthor package) 
+        or other dvd authoring software.
+        
+        One of the output images is the menu background, all others are buttons
+        on a transparent canvas. In the case of a 16:9 widescreen menu, there
+        are two sets of buttons created: one for viewing on a 16:9
+        display and another for viewing letterboxed on a 4:3 display.  To make 
+        a DVD menu, both of these should be multiplexed into the menu video as 
+        separate subtitle streams.  This is handled automatically if using 
+        either of the other two scripts (**izdvd** and **izdvdmenu**).  Note:
+        other ways to view 16:9 menus on a 4:3 display are allowed by the DVD
+        spec but not supported by these scripts.  
 
 
 Requirements

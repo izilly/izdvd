@@ -28,11 +28,13 @@ def get_options(mode='dvd'):
                      directory containing the files used to make the DVD 
                      (dvdauthor/spumux xml configuration files, menu 
                      image/video files, etc).'''
-    desc['menu'] = '''Make a DVD Menu. Outputs a set of video and xml files 
-                      compatible with dvdauthor.'''
+    desc['menu'] = '''Make a DVD Menu. Outputs an mpeg2 video file multiplexed 
+                      with subtitles (buttons), suitable for use with dvdauthor 
+                      or other DVD authoring software.'''
     desc['bg'] = '''Make a DVD menu background.  Outputs a set of 
                     image and xml files that can be used to create a DVD menu 
-                    with spumux (part of the dvdauthor package).''' 
+                    with spumux (part of the dvdauthor package) or other DVD 
+                    authoring software.''' 
     
     parser = argparse.ArgumentParser(formatter_class=HelpFormatter, 
                                      description=desc[mode])
