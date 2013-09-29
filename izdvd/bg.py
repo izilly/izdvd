@@ -91,6 +91,7 @@ class BG (object):
         self.no_logging = no_logging
         #---------
         self.get_out_paths()
+        self.log_output_info()
         self.get_imgs()
         self.get_dims()
         self.make_bg()
@@ -139,9 +140,8 @@ class BG (object):
     
     def log_output_info(self):
         if self.mode == 'bg' and not self.no_logging:
-            logs = list(zip(['Name', 'Out Dir', 'Files', 'tmp'],
-                            [self.out_name, self.out_dir, self.out_files_dir, 
-                             self.tmp_dir]))
+            logs = list(zip(['Name', 'Out-dir', 'tmp-dir'],
+                            [self.out_name, self.out_dir, self.tmp_dir]))
             utils.log_items(logs, 'Output Paths', logger=self.logger)
     
     def get_imgs(self):
