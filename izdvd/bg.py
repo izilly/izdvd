@@ -8,7 +8,10 @@
 
 from izdvd.image import Img, CanvasImg, TextImg
 from izdvd import utils
+from izdvd import user_input
 from izdvd import config
+import subprocess
+import sys
 from lxml import etree
 import math
 from collections import Counter
@@ -27,6 +30,7 @@ class BG (object):
                  out_dir=None,
                  tmp_dir=None,
                  out_log=None,
+                 no_prompt=False,
                  # ---------------bg opts --------------------
                  # padding
                  outer_padding=30, 
@@ -62,6 +66,7 @@ class BG (object):
         self.out_dir = out_dir
         self.tmp_dir = tmp_dir
         self.out_log = out_log
+        self.no_prompt = no_prompt
         # padding
         self.label_padding = label_padding
         self.outer_padding = outer_padding
@@ -92,6 +97,8 @@ class BG (object):
         #---------
         self.get_out_paths()
         self.log_output_info()
+        self.log_input_info()
+        self.prompt_input_output()
         self.get_imgs()
         self.get_dims()
         self.make_bg()
@@ -138,11 +145,36 @@ class BG (object):
         self.logger.addHandler(logging.FileHandler(self.out_log))
         self.logger.setLevel(logging.INFO)
     
+    def log_input_info(self):
+        if not self.no_logging:
+            logs = list(zip(['Background', 'Menu Images', 'Menu Labels'],
+                            [self.menu_bg, self.menu_imgs, self.menu_labels]))
+            utils.log_items(logs, 'Menu Background Information', 
+                            logger=self.logger)
+
     def log_output_info(self):
         if self.mode == 'bg' and not self.no_logging:
-            logs = list(zip(['Name', 'Out-dir', 'tmp-dir'],
+            logs = list(zip(['Name', 'Out dir', 'tmp'],
                             [self.out_name, self.out_dir, self.tmp_dir]))
             utils.log_items(logs, 'Output Paths', logger=self.logger)
+    
+    def prompt_input_output(self):
+        if (self.mode in ['bg', 'menu'] and not self.no_logging 
+            and not self.no_prompt):
+            choices = ['Continue',
+                       'Display a menu image']
+            while True:
+                resp = user_input.prompt_user_list(choices)
+                if resp is False:
+                    sys.exit()
+                elif resp == 0:
+                    break
+                img = user_input.prompt_user_list(self.menu_imgs, 
+                                                  header='Display an image')
+                o = subprocess.check_call([config.IMAGE_VIEWER, 
+                                           self.menu_imgs[img]],
+                                          stderr=subprocess.STDOUT,
+                                          stdout=subprocess.DEVNULL)
     
     def get_imgs(self):
         if self.menu_imgs:

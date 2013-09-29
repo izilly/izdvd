@@ -469,6 +469,7 @@ class DVD (object):
             return
         choices = ['Continue',
                    'Play a video',
+                   'Display a menu image',
                    'List contents of a directory']
         while True:
             resp = user_input.prompt_user_list(choices)
@@ -477,18 +478,25 @@ class DVD (object):
             elif resp == 0:
                 break
             vids = [i['vid_label'] for i in self.vids]
-            path = user_input.prompt_user_list(vids, header=choices[resp])
+            chosen = user_input.prompt_user_list(vids, header=choices[resp])
             # TODO: offer choice of files when video is stacked
-            path = self.vids[path]['in'][0]
+            chosen_vid = self.vids[chosen]
+            vid_path = chosen_vid['in'][0]
+            img_path = chosen_vid['img']
             if resp == 1:
-                o = subprocess.check_call([config.VIDEO_PLAYER, path],
+                o = subprocess.check_call([config.VIDEO_PLAYER, vid_path],
                                           stderr=subprocess.STDOUT,
                                           stdout=subprocess.DEVNULL)
             elif resp == 2:
+                o = subprocess.check_call([config.IMAGE_VIEWER, 
+                                           img_path],
+                                          stderr=subprocess.STDOUT,
+                                          stdout=subprocess.DEVNULL)
+            elif resp == 3:
                 o = subprocess.check_output(['ls', '-lhaF', '--color=auto', 
-                                             os.path.dirname(path)],
+                                             os.path.dirname(vid_path)],
                                             universal_newlines=True)
-                print('\n{}\n\n{}'.format(path, o.strip()))
+                print('\n{}\n\n{}'.format(vid_path, o.strip()))
     
     def prompt_menu(self):
         if self.no_prompt:

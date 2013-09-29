@@ -93,6 +93,7 @@ class DVDMenu (object):
         self.no_logging = no_logging
         #-----------------
         self.get_out_paths()
+        self.log_output_info()
         self.get_bg()
         self.convert_to_m2v()
         self.convert_audio()
@@ -132,7 +133,7 @@ class DVDMenu (object):
     
     def log_output_info(self):
         if self.mode == 'menu' and not self.no_logging:
-            logs = list(zip(['Name', 'Out Dir', 'Files', 'tmp'],
+            logs = list(zip(['Name', 'Out dir', 'Files', 'tmp'],
                             [self.out_name, self.out_dir, self.out_files_dir, 
                              self.tmp_dir]))
             utils.log_items(logs, 'Output Paths', logger=self.logger)
