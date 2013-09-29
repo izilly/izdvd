@@ -448,10 +448,17 @@ class DVD (object):
                 in_srt = i['srt']
             #~ name = os.path.basename(i['in'])
             duration = self.get_duration_string(i['duration'])
-            log_data = list(zip(['In file(s)', 'Image', 'Label', 'Subtitle', 
-                             'Aspect Ratio', 'Duration'], 
-                            [in_vids, in_img, i['menu_label'], in_srt, 
-                             '{:.2f}'.format(i['ar']), duration]))
+            keys = ['In file(s)', 'Image', 'Label', 'Subtitle', 
+                             'Aspect Ratio', 'Duration']
+            vals = [in_vids, in_img, i['menu_label'], in_srt, 
+                             '{:.2f}'.format(i['ar']), duration]
+            if not self.with_menu_labels:
+                vals.pop(keys.index('Label'))
+                keys.pop(keys.index('Label'))
+            if not self.with_subs:
+                vals.pop(keys.index('Subtitle'))
+                keys.pop(keys.index('Subtitle'))
+            log_data = list(zip(keys, vals))
             if in_dir:
                 log_data.append(('In Dir', in_dir))
             utils.log_items('#{}: {}:'.format(n+1, i['vid_label']), 
