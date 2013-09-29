@@ -111,7 +111,8 @@ def get_space_available(path):
 def log_items(items=None, heading=None, logger=None, lvl=logging.INFO, 
               sep='=', sep_length=78, max_width=78, s_indent=4, indent=0, 
               col_width=12, lines_before=1, lines_after=0, 
-              sep_pre=None, sep_post=None):
+              sep_pre=None, sep_post=None,
+              none_str='***NONE***'):
     if logger is None:
         logger = logging.getLogger(config.PROG_NAME)
     for l in range(lines_before):
@@ -128,7 +129,7 @@ def log_items(items=None, heading=None, logger=None, lvl=logging.INFO,
     if items is not False:
         #~ return
         if items is None:
-            items = ['<none>']
+            items = [none_str]
         if isinstance(items, numbers.Number):
             items = str(items)
         if type(items) == str:
@@ -139,18 +140,19 @@ def log_items(items=None, heading=None, logger=None, lvl=logging.INFO,
             if type(i) == tuple:
                 lines = []
                 item = i[0]
-                val = i[1] if i[1] is not None else '<none>'
+                val = i[1] if i[1] is not None else none_str
                 if isinstance(val, numbers.Number):
                     val = str(val)
                 if type(val) == str:
                     val = [val]
                 for n,v in enumerate(val):
+                    v = v if v is not None else none_str
                     if n == 0:
                         c1 = item+' : '
-                        sep = ': '
+                        #~ sep = ': '
                     else:
                         c1 = ''
-                        sep = '  '
+                        #~ sep = '  '
                     msg = '{c1:>{width}}{c2}'.format(c1=c1, c2=v,
                                                     width=col_width+3)
                     lines.append(msg)
