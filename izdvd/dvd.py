@@ -144,11 +144,12 @@ class DVD (object):
         self.get_out_paths()
         # get information about input video
         self.get_media_info()
+        self.calculate_vbitrate()
         self.log_output_info()
         self.log_input_info()
         self.log_titlesets()
+        self.log_dvd_info()
         self.prompt_input_output()
-        self.calculate_vbitrate()
         # make menu
         if self.with_menu or self.menu_only:
             self.get_menu()
@@ -383,7 +384,8 @@ class DVD (object):
         logs = list(zip(['Name', 'DVD', 'Files', 'tmp'],
                         [self.out_name, self.out_dvd_dir, self.out_files_dir, 
                          self.tmp_dir]))
-        utils.log_items(logs, 'Output Paths', logger=self.logger)
+        utils.log_items(logs, 'Output Paths', col_width=16, 
+                        logger=self.logger)
 
     def log_input_info(self):
         utils.log_items(heading='Video Information', items=[], lines_before=1,
@@ -451,15 +453,15 @@ class DVD (object):
             utils.log_items(log_data, col_width=12, indent=4, lines_before=0,
                             logger=self.logger)
     
-    def log_menu_info(self):
-        if self.menu_ar == 16/9:
-            ar = '16:9'
-        else:
-            ar = '4:3'
-        log_data = list(zip(['Aspect Ratio', 'Image', 'Video'],
-                            [ar, self.menu.bg.path_bg_img, 
-                             self.menu.path_menu_mpg]))
-        utils.log_items(heading='Menu', items=log_data, lines_before=1,
+    def log_dvd_info(self):
+        total_bitrate = self.vbitrate + self.abitrate
+        log_data = list(zip(['Total Duration', 'Total Bitrate', 
+                             'Video Bitrate', 'Audio Bitrate'], 
+                        [str(timedelta(seconds=self.duration_total)), 
+                         '{:.1f} kbps'.format(total_bitrate / 1024),
+                         '{:.1f} kbps'.format(self.vbitrate / 1024),
+                         '{:.1f} kbps'.format(self.abitrate / 1024),]))
+        utils.log_items(log_data, 'DVD Info', col_width=16, 
                         logger=self.logger)
     
     def prompt_input_output(self):
@@ -563,24 +565,14 @@ class DVD (object):
         # 9800kbps (dvd max) = 10035200 bits per second
         if total_bitrate > 9000000:
             self.vbitrate = math.floor(9000000 - self.abitrate)
-        
-        logs = list(zip(['Total Duration', 'Bitrate', 'Video Bitrate', 
-                         'Audio Bitrate'], 
-                        [str(timedelta(seconds=duration)), 
-                         '{:.1f} kbps'.format(total_bitrate / 1024),
-                         '{:.1f} kbps'.format(self.vbitrate / 1024),
-                         '{:.1f} kbps'.format(self.abitrate / 1024),]))
-        utils.log_items(logs, 'DVD Info', logger=self.logger)
     
     def get_audio_bitrate(self):
         return self.abitrate
-    
-    def log_dvd_info(self):
-        pass
-    
+        
     def get_menu(self):
         utils.log_items(heading='Making DVD Menu...', items=False, 
-                        sep=None, sep_post='-', logger=self.logger)
+                        sep=None, sep_post='-', lines_before=2,
+                        logger=self.logger)
         if not self.with_menu_labels:
             self.menu_label_line_height = 0
         menu_args = {}

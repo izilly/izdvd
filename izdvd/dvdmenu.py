@@ -352,5 +352,5 @@ class DVDMenu (object):
                                 [ar, self.bg.path_bg_img, 
                                  self.path_menu_mpg]))
             utils.log_items(heading='Menu', items=log_data, lines_before=1,
-                             logger=self.logger)
+                            col_width=16, logger=self.logger)
     
