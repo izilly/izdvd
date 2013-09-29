@@ -178,6 +178,10 @@ def add_dvd_opts(parser, mode='dvd'):
     dvd_opts.add_argument('--sub-lang', metavar='LANG', default='en', 
                               help="""Subtitle language. (default: 
                                       %(default)s)""")
+    dvd_opts.add_argument('--dvd-format', metavar='FMT', 
+                               default='NTSC',
+                               help="""DVD format. 
+                                       (NTSC or PAL, default: %(default)s)""")
     dvd_opts.add_argument('--dvd-ar', choices=['16:9', '4:3'], default=None,
                               help="""DVD aspect ratio.  If not specified, it 
                                       will be calculated automatically.""")
@@ -249,10 +253,12 @@ def add_menu_opts(parser, mode='dvd'):
         menu_ar.default = '16:9'
         menu_ar.help = """Menu aspect ratio. (default: %(default)s)"""
     
-    bg_opts.add_argument('--dvd-format', metavar='FMT', 
-                               default='NTSC',
-                               help="""DVD format. 
-                                       (NTSC or PAL, default: %(default)s)""")
+    if mode in ['menu', 'bg']: 
+        bg_opts.add_argument('--dvd-format', metavar='FMT', 
+                                   default='NTSC',
+                                   help="""DVD format. 
+                                           (NTSC or PAL, default: %(default)s)""")
+    
     bg_opts.add_argument('--outer-padding', type=int, metavar='PX', 
                                default=80,
                                help="""Minimum padding in pixels between the 
