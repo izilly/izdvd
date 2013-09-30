@@ -168,6 +168,38 @@ def log_items(items=None, heading=None, logger=None, lvl=logging.INFO,
         logger.log(lvl, '')
 
 
+def format_help(parser, width=None):
+    if width:
+        formatter = parser._get_formatter(width=width)
+    else:
+        formatter = parser._get_formatter()
+
+    # usage
+    formatter.add_usage(parser.usage, parser._actions,
+                        parser._mutually_exclusive_groups)
+
+    # description
+    formatter.add_text(parser.description)
+
+    # positionals, optionals and user-defined groups
+    for action_group in parser._action_groups:
+        formatter.start_section(action_group.title)
+        formatter.add_text(action_group.description)
+        formatter.add_arguments(action_group._group_actions)
+        formatter.end_section()
+
+    # epilog
+    formatter.add_text(parser.epilog)
+
+    # determine help from format above
+    return formatter.format_help()
+
+
+class ArgumentParser(argparse.ArgumentParser):
+    def _get_formatter(self, width=None):
+        return self.formatter_class(prog=self.prog, width=width)
+
+
 class HelpFormatter(argparse.HelpFormatter):
     def __init__(self,
                  prog,

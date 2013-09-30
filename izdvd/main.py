@@ -8,7 +8,7 @@
 from izdvd.bg import BG
 from izdvd.dvdmenu import DVDMenu
 from izdvd.dvd import DVD
-from izdvd.utils import HelpFormatter
+from izdvd.utils import ArgumentParser, HelpFormatter, format_help
 from izdvd import config
 import re
 import os
@@ -21,7 +21,7 @@ LOGGER = logging.getLogger(config.PROG_NAME)
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.INFO)
 
-def get_options(mode='dvd'):
+def get_options(mode='dvd', prog=None, export=False, export_width=100):
     desc = {}
     desc['dvd'] = '''Make an authored DVD with menu.  Outputs a VIDEO_TS 
                      directory with DVD video files as well as a "files" 
@@ -36,8 +36,10 @@ def get_options(mode='dvd'):
                     with spumux (part of the dvdauthor package) or other DVD 
                     authoring software.''' 
     
-    parser = argparse.ArgumentParser(formatter_class=HelpFormatter, 
+    parser = ArgumentParser(formatter_class=HelpFormatter, 
                                      description=desc[mode])
+    if prog is not None:
+        parser.prog = prog
 
     if mode in ['dvd']:
         add_in_paths_opts(parser, mode)
@@ -53,6 +55,10 @@ def get_options(mode='dvd'):
         add_out_paths_opts(parser, mode)
     
     options = parser.parse_args()
+    
+    if export:
+        help_doc = format_help(parser, width=export_width)
+        return help_doc
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -84,18 +90,18 @@ def add_in_paths_opts(parser, mode='dvd'):
         in_files.description = desc['dvd']
 
     if mode == 'dvd':
-        in_files.add_argument('-v', '--in-vids', metavar='PATH', nargs='*',
+        in_files.add_argument('-v', '--in-vids', metavar='PATH', nargs='+',
                                   help="""Video files""")
-        in_files.add_argument('-d', '--in-dirs', metavar='PATH', nargs='*', 
+        in_files.add_argument('-d', '--in-dirs', metavar='PATH', nargs='+', 
                                   help="""Directories containing 
                                           video[/image/subtitle] files""")
-        in_files.add_argument('-s', '--in-srts', metavar='PATH', nargs='*', 
+        in_files.add_argument('-s', '--in-srts', metavar='PATH', nargs='+', 
                                   help="""Subtitle files in .srt format""")
     
     if mode in ['dvd', 'menu', 'bg']:
-        in_files.add_argument('-i', '--menu-imgs', metavar='PATH', nargs='*', 
+        in_files.add_argument('-i', '--menu-imgs', metavar='PATH', nargs='+', 
                                   help="""Menu images (buttons)""")
-        in_files.add_argument('-l', '--menu-labels', metavar='LABEL', nargs='*', 
+        in_files.add_argument('-l', '--menu-labels', metavar='LABEL', nargs='+', 
                                   help="""Menu labels (optional)""")
         in_files.add_argument('-b', '--menu-bg', metavar='PATH', default='gray',
                                   help="""Menu background image (optional). 
@@ -113,17 +119,17 @@ def add_in_paths_opts(parser, mode='dvd'):
 def add_in_opts(parser, mode='dvd'):
     in_opts = parser.add_argument_group(title='Input Options')
 
-    in_opts.add_argument('--vid-fmts', metavar='FMT', nargs='*', 
+    in_opts.add_argument('--vid-fmts', metavar='FMT', nargs='+', 
                              default=['mp4', 'avi', 'mkv'], 
                              help="""If in-vids are not specified, search 
                                      in-dirs for video files with these 
                                      extensions""")
-    in_opts.add_argument('--img-fmts', metavar='FMT', nargs='*', 
+    in_opts.add_argument('--img-fmts', metavar='FMT', nargs='+', 
                              default=['png', 'jpg', 'bmp', 'gif'], 
                              help="""If menu-imgs are not specified, search 
                                      video directories for image files with 
                                      these extensions""")
-    in_opts.add_argument('--img-names', metavar='NAME', nargs='*', 
+    in_opts.add_argument('--img-names', metavar='NAME', nargs='+', 
                              default=['poster', 'folder'],
                              help="""If menu-imgs are not specified, search 
                                      video directories for image files with 
@@ -358,6 +364,11 @@ def make_menu(options):
 
 def make_bg(options):
     bg = BG(**vars(options))
+
+def export_help(mode='dvd', width=100):
+    help_doc = get_options(mode, prog=config.MODE_NAMES[mode], 
+                           export=True, export_width=width)
+    return help_doc
 
 def main(mode='dvd'):
     options = get_options(mode=mode)
