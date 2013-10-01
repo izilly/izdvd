@@ -20,6 +20,7 @@ from lxml import etree
 import glob
 import re
 import logging
+import difflib
 
 
 class DVD (object):
@@ -293,6 +294,7 @@ class DVD (object):
                 self.in_srts = [None for i in self.in_vids]
     
     def get_matching_file(self, vid, fmts, names=[]):
+        fmts = [i.lower() for i in fmts]
         dirname, basename = os.path.split(vid)
         name, ext = os.path.splitext(basename)
         for n in [name, basename, '{}*'.format(name)] + names:
@@ -302,14 +304,44 @@ class DVD (object):
                 found = sorted(glob.glob(search_name))
                 if found:
                     return found[0]
-        # if no exact match found and one_vid_per_dir, we still search for 
+        
+        # if no exact match found, use difflib to get the closest match
+        matches = []
+        for fmt in fmts:
+            ideal_match = '{}.{}'.format(name, fmt).lower()
+            #~ dir_files = glob.glob(os.path.join(dirname, '*.{}'.format(fmt)))
+            dir_files = [i for i in os.listdir(dirname) 
+                         if os.path.splitext(i)[1].lstrip('.').lower() == fmt]
+            dir_files_lower = [i.lower() for i in dir_files]
+            similar = difflib.get_close_matches(ideal_match, dir_files_lower)
+            if similar:
+                score = difflib.SequenceMatcher(None, ideal_match, similar[0].lower())
+                match_basename = dir_files[dir_files_lower.index(similar[0])]
+                match_path = os.path.join(dirname, match_basename)
+                matches.append((score, match_path))
+        if matches:
+            best_match = sorted(matches, key=lambda i: i[0], reverse=True)[0]
+            return best_match[1]
+        
+        # if still no match found and one_vid_per_dir, we search for 
         # match based only on file extension
         if self.one_vid_per_dir:
+            matches = []
             for fmt in fmts:
-                found = sorted(glob.glob(os.path.join(dirname, 
-                                                      '*.{}'.format(fmt))))
-                if found:
-                    return found[0]
+                dir_files = [i for i in os.listdir(dirname) if 
+                             os.path.splitext(i)[1].lstrip('.').lower() == fmt]
+                if dir_files:
+                    # pick the file with the shortest name
+                    # (reverse the sorting so that if there is a tie,
+                    #  the file with the lowest index in dir_files will
+                    #  be picked)
+                    shortest = sorted(dir_files, key=lambda i: len(i), 
+                                      reverse=True)[-1]
+                    matches.append(os.path.join(dirname, shortest))
+            if matches:
+                shortest = sorted(matches, key=lambda i: len(i), 
+                                  reverse=True)[-1]
+                return shortest
         return None
     
     def get_media_info(self):
