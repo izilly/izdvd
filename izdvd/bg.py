@@ -317,7 +317,10 @@ class BG (object):
                 i['empty'] = empty
                 i['cell_w'] = bw
                 i['cell_h'] = bh
-        sufficient = [i for i in methods if i['empty'] > -1]
+        sufficient = [i for i in methods if i['empty'] > -1 and i['area'] > 0]
+        if not sufficient:
+            print('Not enough space to fit buttons!')
+            raise
         areas = sorted([i['area'] for i in sufficient])
         max_area = areas[-1]
         max_methods = [i for i in sufficient if i['area'] == max_area]
@@ -349,10 +352,12 @@ class BG (object):
         shadow_padding = self.calculate_shadow_padding()
         shadow_padding_x = shadow_padding['x']
         shadow_padding_y = shadow_padding['y']
-        padded_w = bg_w - padding_w - shadow_padding_x
-        padded_h = bg_h - padding_h - label_padding_h - shadow_padding_y
-        col_w = padded_w / cols
-        row_h = padded_h / rows
+        border_padding_x = cols * self.button_border_thickness*2
+        border_padding_y = rows * self.button_border_thickness*2
+        padded_w = bg_w - padding_w - shadow_padding_x - border_padding_x
+        padded_h = bg_h - padding_h - label_padding_h - shadow_padding_y - border_padding_y
+        col_w = padded_w/cols if padded_w > 0 else 0
+        row_h = padded_h/rows if padded_h > 0 else 0
         cell_w = col_w
         cell_h = cell_w/cell_ar
         if cell_h > row_h:
@@ -503,24 +508,16 @@ class BG (object):
                         x1: right edge
                         y1: bottom edge
         '''
-        cells = len(self.button_imgs)
-        cols = self.cols
-        rows = self.rows
-        label_height = self.label_height
-        shadow_padding = self.calculate_shadow_padding()
-        cell_w = self.cell_w + shadow_padding['x']
-        # TODO: ensure cell_h is correct when no labels; i.e., 
-        # label_height/label_padding needs to be zero if there is no label.
-        cell_h = (self.cell_h + label_height 
-                  + self.label_padding + shadow_padding['y'])
         bg_w = self.display_width
         bg_h = self.display_height
-        total_cells = list(range(cells))
+        total_cells = list(range(len(self.button_imgs)))
         cells = []
-        padding_y = math.floor((bg_h - cell_h*rows) / (rows + 1))
+        cell_w = max([i.get_width() for i in self.button_imgs])
+        cell_h = max([i.get_height() for i in self.button_imgs])
+        padding_y = math.floor((bg_h - cell_h*self.rows) / (self.rows + 1))
         padded_y = cell_h + padding_y
-        for r in range(rows):
-            row_cells = total_cells[len(cells):len(cells)+cols]
+        for r in range(self.rows):
+            row_cells = total_cells[len(cells):len(cells)+self.cols]
             len_cells = len(row_cells)
             padding_x = math.floor((bg_w - cell_w*len_cells) / (len_cells + 1))
             padded_x = cell_w + padding_x
@@ -544,9 +541,15 @@ class BG (object):
             b = self.button_imgs[n]
             x = cell['x0'] + b.x_padding
             y = cell['y0'] + b.y_padding
-            self.bg_img.new_layer(b, x, y, True)
-            self.highlight_img.new_layer(b.highlight, x, y, True)
-            self.select_img.new_layer(b.select, x, y, True)
+            self.bg_img.new_layer(b, x, y, layers_method='flatten')
+            self.highlight_img.new_layer(b.highlight, 
+                                         x + b.x_offset, 
+                                         y + b.y_offset, 
+                                         True, layers_method='flatten')
+            self.select_img.new_layer(b.select, 
+                                      x + b.x_offset, 
+                                      y + b.y_offset,
+                                      True, layers_method='flatten')
     
     def resize_imgs(self):
         '''
