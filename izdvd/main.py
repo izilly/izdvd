@@ -263,7 +263,8 @@ def add_menu_opts(parser, mode='dvd'):
         bg_opts.add_argument('--dvd-format', metavar='FMT', 
                                    default='NTSC',
                                    help="""DVD format. 
-                                           (NTSC or PAL, default: %(default)s)""")
+                                           (NTSC or PAL, 
+                                           default: %(default)s)""")
     
     bg_opts.add_argument('--outer-padding', type=int, metavar='PX', 
                                default=80,
@@ -295,18 +296,21 @@ def add_menu_opts(parser, mode='dvd'):
 
     bg_opts.add_argument('--button-border-color', metavar='COLOR', 
                              default='white',
-                             help="""Color of the border drawn around each
-                                     button (menu-img).""")
+                             help="""Color name/value of the border drawn 
+                                     around each button (menu-img).
+                                     (default: %(default)s)""")
     bg_opts.add_argument('--button-border-thickness', metavar='PX', type=int,
                              default=5,
                              help="""Size in pixels of the border drawn 
-                                     around each button (menu-img). """)
+                                     around each button (menu-img). 
+                                     (default: %(default)s)""")
     bg_opts.add_argument('--button-highlight-color', metavar='COLOR', 
                              default='#56B356',
                              help="""Color of the highlight/border drawn 
                                      around the currently selected button 
                                      (menu-img) while the menu is navigated 
-                                     using a remote/keyboard.""")
+                                     using a remote/keyboard.
+                                     (default: %(default)s)""")
     bg_opts.add_argument('--button-highlight-thickness', metavar='PX', type=int,
                              default=10,
                              help="""Size in pixels of the highlight/border 
@@ -321,7 +325,8 @@ def add_menu_opts(parser, mode='dvd'):
                                      This is recommended, especially for a 
                                      menu with only two buttons, otherwise 
                                      it is difficult to determine which 
-                                     button is currently highlighted.""")
+                                     button is currently highlighted. 
+                                     (default: %(default)s)""")
     bg_opts.add_argument('--button-select-color', metavar='COLOR', 
                              default='red',
                              help="""Color of the border drawn around the
@@ -329,7 +334,8 @@ def add_menu_opts(parser, mode='dvd'):
                                      immediately after it has been "clicked" 
                                      with the remote/keyboard. The thickness 
                                      is the same as the value given with 
-                                     --button-highlight-thickness.""")
+                                     --button-highlight-thickness. 
+                                     (default: %(default)s)""")
 
 def add_output_opts(parser, mode='dvd'):
     out_opts = parser.add_argument_group(title='Output Options')
