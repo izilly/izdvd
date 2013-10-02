@@ -287,6 +287,14 @@ class BG (object):
                                      'for menu buttons...'),
                             items=False, lines_before=1, sep='', sep_post='-',
                             logger=self.logger)
+        if self.menu_labels:
+            has_labels = [i for i in self.menu_labels if i]
+        else:
+            has_labels = False
+        if not has_labels:
+            self.menu_labels = None
+            self.label_line_height = 0
+            self.label_padding = 0
         bg_w = self.display_width - self.outer_padding*2
         bg_h = self.display_height - self.outer_padding*2
         bg_ar = bg_w / bg_h
@@ -456,16 +464,7 @@ class BG (object):
         '''Create images for each label to be placed alongside the button 
         images.
         '''
-        if self.menu_labels:
-            has_labels = [i for i in self.menu_labels if i]
-        else:
-            has_labels = False
-        if not has_labels:
-            self.menu_labels = None
-        if not self.menu_labels or not self.label_line_height > 0:
-            self.label_imgs = None
-            self.label_height = 0
-            self.label_padding = 0
+        if not self.menu_labels:
             return False
         if not self.no_logging:
             utils.log_items(heading='Making menu label images...', 
