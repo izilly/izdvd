@@ -196,21 +196,21 @@ class DVD (object):
         self.out_name, self.out_dir, self.tmp_dir = paths
         
         self.out_dvd_dir = os.path.join(self.out_dir, 'DVD')
-        self.out_files_dir = os.path.join(self.out_dir, 'files')
-        self.out_dvd_xml = os.path.join(self.out_files_dir, 
+        #~ self.out_files_dir = os.path.join(self.out_dir, 'files')
+        self.out_dvd_xml = os.path.join(self.out_dir, 
                                         '{}_dvd.xml'.format(self.out_name))
         self.out_log = os.path.join(self.out_dir, 
                                     '{}.log'.format(self.out_name))
         # make dirs if they don't exist
-        for i in [self.out_dvd_dir, self.out_files_dir, self.tmp_dir]:
+        for i in [self.out_dvd_dir, self.tmp_dir]:
             if not os.path.exists(i):
                 os.makedirs(i)
         
         # check available space
         devices = {}
         dvd_size = self.dvd_size_bytes
-        for d,s in zip([self.out_dvd_dir, self.out_files_dir, self.tmp_dir], 
-                       [dvd_size, dvd_size*.1, dvd_size]):
+        for d,s in zip([self.out_dvd_dir, self.tmp_dir], 
+                       [dvd_size*1.05, dvd_size*1.05]):
             dev = os.stat(d).st_dev
             if devices.get(dev):
                 devices[dev] -= s
@@ -438,8 +438,8 @@ class DVD (object):
                 re_stacked_bare_letters]
     
     def log_output_info(self):
-        logs = list(zip(['Name', 'DVD', 'Files', 'tmp'],
-                        [self.out_name, self.out_dvd_dir, self.out_files_dir, 
+        logs = list(zip(['Name', 'DVD', 'tmp'],
+                        [self.out_name, self.out_dvd_dir, 
                          self.tmp_dir]))
         utils.log_items(logs, 'Output Paths', col_width=16, 
                         logger=self.logger)
@@ -676,13 +676,14 @@ class DVD (object):
         self.menu = DVDMenu(self.menu_imgs, 
                             menu_bg=self.menu_bg,
                             menu_labels=self.menu_labels, 
-                            out_dir=self.out_files_dir,
+                            out_dir=self.tmp_dir,
+                            #~ tmp_dir=self.tmp_dir,
                             dvd_format=self.dvd_format,
                             out_log=self.out_log,
                             **menu_args)
 
         self.blank_menu = DVDMenu(menu_imgs=None,
-                                  out_dir=self.out_files_dir,
+                                  out_dir=self.tmp_dir,
                                   out_name='blank',
                                   tmp_dir=self.tmp_dir,
                                   menu_ar=self.menu_ar,
@@ -818,7 +819,7 @@ class DVD (object):
         return groups
     
     def author_dvd(self):
-        utils.log_items(heading='Writing DVD to disc...', items=False,
+        utils.log_items(heading='Authoring DVD...', items=False,
                         logger=self.logger)
         e = dict(os.environ)
         e['VIDEO_FORMAT'] = self.dvd_format
