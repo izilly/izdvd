@@ -358,8 +358,8 @@ class BG (object):
         label_padding_h = (self.label_line_height*self.label_lines 
                            + self.label_padding) * rows
         shadow_padding = self.calculate_shadow_padding()
-        shadow_padding_x = shadow_padding['x']
-        shadow_padding_y = shadow_padding['y']
+        shadow_padding_x = cols * shadow_padding['x']
+        shadow_padding_y = rows * shadow_padding['y']
         border_padding_x = cols * self.button_border_thickness*2
         border_padding_y = rows * self.button_border_thickness*2
         padded_w = bg_w - padding_w - shadow_padding_x - border_padding_x
@@ -423,19 +423,13 @@ class BG (object):
         for i in self.button_imgs:
             if i.ar > self.cell_ar:
                 w = self.cell_w
-                h = math.floor(self.cell_w / self.cell_ar)
-                i.x_padding = 0
-                i.y_padding = math.floor((self.cell_h - h) / 2)
+                h = math.floor(self.cell_w / i.ar)
             elif i.ar < self.cell_ar:
-                w = math.floor(self.cell_h * self.cell_ar)
+                w = math.floor(self.cell_h * i.ar)
                 h = self.cell_h
-                i.x_padding = math.floor((self.cell_w - w) / 2)
-                i.y_padding = 0
             else:
                 w = self.cell_w
                 h = self.cell_h
-                i.x_padding = 0
-                i.y_padding = 0
             i.resize(w, h, True)
     
     def prepare_buttons(self):
@@ -528,6 +522,8 @@ class BG (object):
                 c = {'x0': x0, 'y0': y0, 'x1': x1, 'y1': y1}
                 cells.append(c)
         self.cell_locations = cells
+        self.cell_w = cell_w
+        self.cell_h = cell_h
     
     def overlay_buttons(self):
         '''Overlays the buttons onto the background image.
@@ -538,8 +534,10 @@ class BG (object):
         self.select_img = self.bg_img.new_canvas()
         for n,cell in enumerate(self.cell_locations):
             b = self.button_imgs[n]
-            x = cell['x0'] + b.x_padding
-            y = cell['y0'] + b.y_padding
+            x_padding = math.floor((self.cell_w - b.get_width()) / 2)
+            y_padding = math.floor((self.cell_h - b.get_height()) / 2)
+            x = cell['x0'] + x_padding
+            y = cell['y0'] + y_padding
             self.bg_img.new_layer(b, x, y, layers_method='flatten')
             self.highlight_img.new_layer(b.highlight, 
                                          x + b.x_offset, 
