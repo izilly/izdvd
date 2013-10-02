@@ -30,7 +30,7 @@ class BG (object):
                  out_dir=None,
                  tmp_dir=None,
                  out_log=None,
-                 no_prompt=False,
+                 no_prompt=True,
                  # ---------------bg opts --------------------
                  # padding
                  outer_padding=30, 
